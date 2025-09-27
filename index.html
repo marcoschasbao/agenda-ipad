@@ -1,46 +1,37 @@
 <!doctype html>
 <html lang="es">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>Agenda</title>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Agenda iOS · Marcos</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#0a84ff">
+  <!-- TailwindCDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { iosBlue: '#0a84ff' }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    .no-select { user-select: none; -webkit-user-select: none; }
+    .chip { border-radius: 9999px; padding: 0.15rem 0.6rem; font-size: .75rem; }
+  </style>
+</head>
+<body class="bg-white text-gray-900">
+  <div id="root" class="min-h-screen"></div>
 
-    <!-- iPad / PWA básico -->
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="Agenda" />
+  <!-- React + Babel -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
 
-    <!-- Estilos (Tailwind CDN) -->
-    <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- React + Babel (UMD) -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-    <style>
-      html, body, #root { height: 100%; }
-      body { -webkit-tap-highlight-color: transparent; }
-      .sys { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
-    </style>
-  </head>
-  <body class="bg-white">
-    <div id="root" class="min-h-screen sys">Cargando…</div>
-
-    <!-- Diagnóstico simple si el script externo falla -->
-    <script>
-      window.addEventListener('error', function(){
-        var r=document.getElementById('root');
-        if(!r) return;
-        r.innerHTML = '<div class="p-4 text-red-700 sys">'+
-          '<p class="font-semibold">No se pudo cargar <code>app.js</code>.</p>'+
-          '<p>Comprueba que <code>index.html</code> y <code>app.js</code> están en la raíz del repo y que el nombre coincide.</p>'+
-        '</div>';
-      }, { once:true });
-    </script>
-
-    <!-- Tu aplicación -->
-    <!-- Si cambias el nombre del archivo JS, modifica la ruta abajo -->
-    <script type="text/babel" data-presets="env,react" src="./app.js?v=8"></script>
-  </body>
+  <!-- App -->
+  <script type="text/babel" data-presets="env,react" src="./app.js?v=10"></script>
+</body>
 </html>
