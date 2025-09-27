@@ -1,10 +1,10 @@
 const { useState, useMemo, useRef } = React;
 
-// === Agenda iPad — reglas nuevas ===
-// - Selector de clientes (modo lista) SOLO muestra clientes del plan del día.
-// - Día sin plan: editor abre en "Fuera de ruta" (sin selector).
-// - Edición: si la nota tiene cliente fuera del plan, el selector lo incluye temporalmente.
-// - Unicidad: SOLO 1 nota por cliente y día (por id; si no hay id, por nombre en minúsculas).
+// === Agenda iPad — mejoras ===
+// - Tap en "Plan del día": abre modal rápida para crear nota (título = cliente).
+// - Prioridades: "Hoy", "Esta semana", "La semana que viene", "Próxima visita".
+// - Chips de color + actualización automática del estado mostrado.
+// - Unicidad: 1 nota por cliente y día.
 
 function App() {
   const WEEK_STARTS_ON = 1; // Lunes
@@ -23,11 +23,14 @@ function App() {
   // Modal Importar
   const [showImport, setShowImport] = useState(false);
 
+  // Quick modal desde Plan del día
+  const [quick, setQuick] = useState({ open:false, clienteId:"", clienteNombre:"", texto:"", prioridad:"hoy" });
+
   // borrador NUEVA nota
-  const [draft, setDraft] = useState({ mode: "lista", clienteId: "", cliente: "", texto: "" });
+  const [draft, setDraft] = useState({ mode: "lista", clienteId: "", cliente: "", texto: "", prioridad: "hoy" });
   // borrador EDICIÓN
   const [editingId, setEditingId] = useState(null);
-  const [editDraft, setEditDraft] = useState({ mode: "lista", clienteId: "", cliente: "", texto: "" });
+  const [editDraft, setEditDraft] = useState({ mode: "lista", clienteId: "", cliente: "", texto: "", prioridad: "hoy" });
 
   const canSaveNew = useMemo(() => {
     if (draft.mode === "lista") return !!draft.clienteId;
@@ -42,6 +45,7 @@ function App() {
   // Datos desde localStorage
   const { clientNames, clientsById } = useMemo(() => readClientsFromLocalStorage(), []);
   const planByDate = useMemo(() => readPlanByDateFromLocalStorage(), []);
+  const planDatesSorted = useMemo(() => Object.keys(planByDate).sort(), [planByDate]);
 
   // Navegación y etiquetas
   const year = viewDate.getFullYear();
@@ -107,9 +111,9 @@ function App() {
   const openNew = ()=>{
     setErrorNew("");
     if ((planByDate[currentKey]||[]).length===0) {
-      setDraft({ mode:"custom", clienteId:"", cliente:"", texto:"" });
+      setDraft({ mode:"custom", clienteId:"", cliente:"", texto:"", prioridad:"hoy" });
     } else {
-      setDraft({ mode:"lista", clienteId:"", cliente:"", texto:"" });
+      setDraft({ mode:"lista", clienteId:"", cliente:"", texto:"", prioridad:"hoy" });
     }
     setShowEditor(true);
   };
@@ -122,13 +126,13 @@ function App() {
       if (hasDuplicateForDay(key, draft.clienteId, clientsById[draft.clienteId]?.nombre||"")) { setErrorNew("Ya existe una nota para ese cliente hoy."); return; }
       const id = String(idSeq.current++);
       const nombre = clientsById[draft.clienteId]?.nombre || `ID ${draft.clienteId}`;
-      addItemFor(key, { id, clienteId: draft.clienteId, cliente: nombre, texto: draft.texto, fueraRuta: false });
+      addItemFor(key, { id, clienteId: draft.clienteId, cliente: nombre, texto: draft.texto, fueraRuta: false, prioridad: draft.prioridad||"hoy", anchorDate: key });
     } else {
       const nombre = (draft.cliente||"").trim();
       if (!nombre){ setErrorNew("Indica un cliente (fuera de ruta) o cambia a lista."); return; }
       if (hasDuplicateForDay(key, null, nombre)) { setErrorNew("Ya existe una nota para ese cliente hoy."); return; }
       const id = String(idSeq.current++);
-      addItemFor(key, { id, clienteId: null, cliente: nombre, texto: draft.texto, fueraRuta: true });
+      addItemFor(key, { id, clienteId: null, cliente: nombre, texto: draft.texto, fueraRuta: true, prioridad: draft.prioridad||"hoy", anchorDate: key });
     }
     setShowEditor(false);
   };
@@ -136,7 +140,7 @@ function App() {
   const startEdit = (it)=>{
     setErrorEdit("");
     setEditingId(it.id);
-    setEditDraft({ mode: it.fueraRuta?"custom":"lista", clienteId: it.clienteId||"", cliente: it.cliente||"", texto: it.texto||"" });
+    setEditDraft({ mode: it.fueraRuta?"custom":"lista", clienteId: it.clienteId||"", cliente: it.cliente||"", texto: it.texto||"", prioridad: it.prioridad||"hoy" });
   };
   const cancelEdit = ()=>{ setEditingId(null); setErrorEdit(""); };
   const saveEdit = ()=>{
@@ -151,6 +155,8 @@ function App() {
         cliente: clientsById[editDraft.clienteId]?.nombre || `ID ${editDraft.clienteId}`,
         texto: editDraft.texto,
         fueraRuta: false,
+        prioridad: editDraft.prioridad||x.prioridad||"hoy",
+        anchorDate: x.anchorDate || key,
       });
     } else {
       const nombre = (editDraft.cliente||"").trim();
@@ -162,11 +168,29 @@ function App() {
         cliente: nombre,
         texto: editDraft.texto,
         fueraRuta: true,
+        prioridad: editDraft.prioridad||x.prioridad||"hoy",
+        anchorDate: x.anchorDate || key,
       });
     }
     setEditingId(null);
   };
   const deleteItem = (id)=> removeItemFor(currentKey, id);
+
+  // Tap en plan del día
+  const onPlanClientClick = (clienteId)=>{
+    const key=currentKey; const nombre = clientsById[clienteId]?.nombre || `ID ${clienteId}`;
+    const dup = (itemsByDate[key]||[]).find(x=> uniqueKey(x.clienteId, x.cliente)===uniqueKey(clienteId, nombre));
+    if (dup){ startEdit(dup); return; }
+    setQuick({ open:true, clienteId, clienteNombre:nombre, texto:"", prioridad:"hoy" });
+  };
+  const cancelQuick = ()=> setQuick(q=>({...q, open:false}));
+  const saveQuick = ({texto, prioridad})=>{
+    const key=currentKey; const nombre = quick.clienteNombre; const clienteId = quick.clienteId;
+    if (hasDuplicateForDay(key, clienteId, nombre)) { setQuick(q=>({...q, open:false})); return; }
+    const id = String(idSeq.current++);
+    addItemFor(key, { id, clienteId, cliente: nombre, texto: texto||"", fueraRuta: false, prioridad: prioridad||"hoy", anchorDate: key });
+    setQuick(q=>({...q, open:false}));
+  };
 
   const isSameDay = (a,b)=> !!a && !!b && ymd(a)===ymd(b);
 
@@ -296,7 +320,14 @@ function App() {
               </div>
               <ul className="border-t divide-y">
                 {plannedIdsForDay.length ? (
-                  plannedIdsForDay.map(id=> <li key={id} className="px-4 py-2 text-sm">{(clientsById[id]||{}).nombre || `ID ${id}`}</li>)
+                  plannedIdsForDay.map(id=> (
+                    <li key={id} className="px-4 py-2">
+                      <button onClick={()=>onPlanClientClick(id)} className="w-full text-left text-sm flex items-center justify-between gap-2 hover:bg-gray-50 rounded-xl px-2 py-1.5 active:scale-[0.99]">
+                        <span>{(clientsById[id]||{}).nombre || `ID ${id}`}</span>
+                        <span className="text-xs text-blue-600">Añadir nota →</span>
+                      </button>
+                    </li>
+                  ))
                 ) : (
                   <li className="px-4 py-3 text-sm text-gray-400">Sin plan para este día.</li>
                 )}
@@ -337,6 +368,9 @@ function App() {
                     </button>
                   </div>
 
+                  {/* Prioridad */}
+                  <PriorityChips value={draft.prioridad} onChange={(p)=>setDraft(d=>({...d, prioridad:p }))} />
+
                   <textarea value={draft.texto} onChange={(e)=>setDraft(d=>({...d, texto:e.target.value }))} placeholder="Descripción" className="w-full min-h-[80px] rounded-2xl border p-3" />
                   {errorNew && <div className="text-sm text-red-600">{errorNew}</div>}
                   <div className="flex justify-end gap-2">
@@ -349,59 +383,65 @@ function App() {
               <div className="border-t min-h-[120px] max-h-[50vh] overflow-y-auto overscroll-contain">
                 <ul className="divide-y">
                   {items.length ? (
-                    items.map(it=>
-                      <li key={it.id} className="px-4 py-3 space-y-2">
-                        {editingId===it.id ? (
-                          <div className="space-y-2">
-                            <div className="flex gap-2 items-center">
-                              {editDraft.mode === "lista" ? (
-                                plannedOptions.length ? (
-                                  <select value={editDraft.clienteId} onChange={(e)=>setEditDraft(d=>({...d, clienteId:e.target.value }))} className="h-9 rounded-2xl border px-3 flex-1">
-                                    <option value="" disabled>Selecciona cliente del plan</option>
-                                    {plannedOptions.map(o=> <option key={o.value} value={o.value}>{o.label}</option>)}
-                                  </select>
+                    items
+                      .slice() // copia
+                      .sort((a,b)=> priorityWeight(getPriorityLabelNow(a, planByDate, planDatesSorted)) - priorityWeight(getPriorityLabelNow(b, planByDate, planDatesSorted)))
+                      .map(it=>
+                        <li key={it.id} className="px-4 py-3 space-y-2">
+                          {editingId===it.id ? (
+                            <div className="space-y-2">
+                              <div className="flex gap-2 items-center">
+                                {editDraft.mode === "lista" ? (
+                                  plannedOptions.length ? (
+                                    <select value={editDraft.clienteId} onChange={(e)=>setEditDraft(d=>({...d, clienteId:e.target.value }))} className="h-9 rounded-2xl border px-3 flex-1">
+                                      <option value="" disabled>Selecciona cliente del plan</option>
+                                      {plannedOptions.map(o=> <option key={o.value} value={o.value}>{o.label}</option>)}
+                                    </select>
+                                  ) : (
+                                    <div className="text-sm text-gray-500">Sin plan para este día. Usa “Fuera de ruta”.</div>
+                                  )
                                 ) : (
-                                  <div className="text-sm text-gray-500">Sin plan para este día. Usa “Fuera de ruta”.</div>
-                                )
-                              ) : (
-                                <input value={editDraft.cliente} onChange={(e)=>setEditDraft(d=>({...d, cliente:e.target.value }))} placeholder="Cliente (fuera de ruta)" className="h-9 rounded-2xl border px-3 flex-1" />
-                              )}
+                                  <input value={editDraft.cliente} onChange={(e)=>setEditDraft(d=>({...d, cliente:e.target.value }))} placeholder="Cliente (fuera de ruta)" className="h-9 rounded-2xl border px-3 flex-1" />
+                                )}
 
-                              <button
-                                onClick={()=> setEditDraft(d=> ({...d, mode: d.mode==="lista"?"custom":"lista"}))}
-                                className={"h-9 px-3 rounded-2xl border" + (plannedOptions.length===0 && editDraft.mode!=="custom"?" opacity-60 cursor-not-allowed":"")}
-                                disabled={plannedOptions.length===0 && editDraft.mode!=="custom"}
-                                title={editDraft.mode==="lista"?"Crear fuera de ruta":"Volver a lista"}
-                              >
-                                {editDraft.mode==="lista"?"Fuera de ruta":"Lista clientes"}
-                              </button>
-                            </div>
-
-                            <textarea value={editDraft.texto} onChange={(e)=>setEditDraft(d=>({...d, texto:e.target.value }))} placeholder="Descripción" className="w-full min-h-[80px] rounded-2xl border p-3" />
-                            {errorEdit && <div className="text-sm text-red-600">{errorEdit}</div>}
-                            <div className="flex justify-end gap-2">
-                              <button onClick={cancelEdit} className="h-9 px-3 rounded-2xl border">Cancelar</button>
-                              <button onClick={saveEdit} disabled={!canSaveEdit} className="h-9 px-3 rounded-2xl border bg-blue-600 text-white border-blue-600 disabled:opacity-60 disabled:cursor-not-allowed">Guardar</button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex items-start gap-3">
-                            <div className="shrink-0 h-2.5 w-2.5 rounded-full bg-blue-600 mt-2" />
-                            <div className="flex-1">
-                              <div className="text-sm font-medium flex items-center gap-2">
-                                <span>{it.cliente || (it.clienteId?(`ID ${it.clienteId}`):"(Sin cliente)")}</span>
-                                {it.fueraRuta && <span className="text-[10px] px-2 py-0.5 rounded-full border uppercase tracking-wide">Fuera de ruta</span>}
+                                <button
+                                  onClick={()=> setEditDraft(d=> ({...d, mode: d.mode==="lista"?"custom":"lista"}))}
+                                  className={"h-9 px-3 rounded-2xl border" + (plannedOptions.length===0 && editDraft.mode!=="custom"?" opacity-60 cursor-not-allowed":"")}
+                                  disabled={plannedOptions.length===0 && editDraft.mode!=="custom"}
+                                  title={editDraft.mode==="lista"?"Crear fuera de ruta":"Volver a lista"}
+                                >
+                                  {editDraft.mode==="lista"?"Fuera de ruta":"Lista clientes"}
+                                </button>
                               </div>
-                              <div className="text-sm text-gray-600 whitespace-pre-wrap">{it.texto||"(Sin descripción)"}</div>
+
+                              <PriorityChips value={editDraft.prioridad} onChange={(p)=>setEditDraft(d=>({...d, prioridad:p }))} />
+
+                              <textarea value={editDraft.texto} onChange={(e)=>setEditDraft(d=>({...d, texto:e.target.value }))} placeholder="Descripción" className="w-full min-h-[80px] rounded-2xl border p-3" />
+                              {errorEdit && <div className="text-sm text-red-600">{errorEdit}</div>}
+                              <div className="flex justify-end gap-2">
+                                <button onClick={cancelEdit} className="h-9 px-3 rounded-2xl border">Cancelar</button>
+                                <button onClick={saveEdit} disabled={!canSaveEdit} className="h-9 px-3 rounded-2xl border bg-blue-600 text-white border-blue-600 disabled:opacity-60 disabled:cursor-not-allowed">Guardar</button>
+                              </div>
                             </div>
-                            <div className="flex gap-2">
-                              <button onClick={()=>startEdit(it)} className="h-8 px-2 rounded-2xl border text-xs">✏️</button>
-                              <button onClick={()=>deleteItem(it.id)} className="h-8 px-2 rounded-2xl border text-xs">🗑️</button>
+                          ) : (
+                            <div className="flex items-start gap-3">
+                              <div className="shrink-0 h-2.5 w-2.5 rounded-full bg-blue-600 mt-2" />
+                              <div className="flex-1">
+                                <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
+                                  <span>{it.cliente || (it.clienteId?(`ID ${it.clienteId}`):"(Sin cliente)")}</span>
+                                  {it.fueraRuta && <span className="text-[10px] px-2 py-0.5 rounded-full border uppercase tracking-wide">Fuera de ruta</span>}
+                                  <PriorityBadge item={it} planByDate={planByDate} planDatesSorted={planDatesSorted} />
+                                </div>
+                                <div className="text-sm text-gray-600 whitespace-pre-wrap">{it.texto||"(Sin descripción)"}</div>
+                              </div>
+                              <div className="flex gap-2">
+                                <button onClick={()=>startEdit(it)} className="h-8 px-2 rounded-2xl border text-xs">✏️</button>
+                                <button onClick={()=>deleteItem(it.id)} className="h-8 px-2 rounded-2xl border text-xs">🗑️</button>
+                              </div>
                             </div>
-                          </div>
-                        )}
-                      </li>
-                    )
+                          )}
+                        </li>
+                      )
                   ) : (
                     <li className="px-4 py-6 text-sm text-gray-400">Sin notas. Pulsa “+ Nueva nota”.</li>
                   )}
@@ -419,9 +459,67 @@ function App() {
         <ImportModal
           open={showImport}
           onClose={()=>setShowImport(false)}
-          onSaved={()=>{ /* refrescar selectores si cambia localStorage */ window.location.reload(); }}
+          onSaved={()=>{ window.location.reload(); }}
         />
       )}
+
+      {/* Modal rápida desde Plan del día */}
+      {quick.open && (
+        <QuickNoteModal
+          open={quick.open}
+          clienteNombre={quick.clienteNombre}
+          onCancel={cancelQuick}
+          onSave={saveQuick}
+        />
+      )}
+    </div>
+  );
+}
+
+function PriorityChips({ value, onChange }){
+  const opts = [
+    {k:"hoy", label:"Hoy", cls:"bg-red-50 text-red-700 border-red-200"},
+    {k:"esta_semana", label:"Esta semana", cls:"bg-orange-50 text-orange-700 border-orange-200"},
+    {k:"la_semana_que_viene", label:"La semana que viene", cls:"bg-yellow-50 text-yellow-700 border-yellow-200"},
+    {k:"proxima_visita", label:"Próxima visita", cls:"bg-indigo-50 text-indigo-700 border-indigo-200"},
+  ];
+  return (
+    <div className="flex flex-wrap gap-2">
+      {opts.map(o=>
+        <button key={o.k} onClick={()=>onChange(o.k)}
+          className={["px-3 py-1.5 rounded-2xl border text-xs", o.cls, value===o.k?"ring-2 ring-offset-1":""].join(" ")}> {o.label} </button>
+      )}
+    </div>
+  );
+}
+
+function PriorityBadge({ item, planByDate, planDatesSorted }){
+  const meta = getPriorityMeta(item, planByDate, planDatesSorted);
+  if (!meta) return null;
+  const { label, cls, dueText } = meta;
+  return <span className={["text-[10px] px-2 py-0.5 rounded-full border", cls].join(" ")}>{label}{dueText?` (${dueText})`:""}</span>;
+}
+
+function QuickNoteModal({ open, clienteNombre, onCancel, onSave }){
+  const [texto, setTexto] = useState("");
+  const [prioridad, setPrioridad] = useState("hoy");
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 grid place-items-center px-3">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden">
+        <div className="px-4 py-3 border-b flex items-center justify-between">
+          <h3 className="font-semibold truncate">Nueva nota — {clienteNombre}</h3>
+          <button onClick={onCancel} className="h-9 px-3 rounded-2xl border">Cerrar</button>
+        </div>
+        <div className="p-4 space-y-3">
+          <PriorityChips value={prioridad} onChange={setPrioridad} />
+          <textarea value={texto} onChange={(e)=>setTexto(e.target.value)} placeholder="Escribe la nota..." className="w-full min-h-[120px] rounded-2xl border p-3" />
+          <div className="flex justify-end gap-2 pt-1">
+            <button onClick={onCancel} className="h-9 px-3 rounded-2xl border">Cancelar</button>
+            <button onClick={()=>onSave({texto, prioridad})} className="h-9 px-3 rounded-2xl border bg-blue-600 text-white border-blue-600">Guardar</button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -460,7 +558,7 @@ function ImportModal({ open, onClose, onSaved }){
               if (!rawPlan || !Array.isArray(rawPlan)) throw new Error("plan.json inválido");
               const normClients = normalizeClients(rawClients);
               const normPlan = normalizePlan(rawPlan);
-              localStorage.setItem("agenda.version","2");
+              localStorage.setItem("agenda.version","3");
               localStorage.setItem("agenda.clientes", JSON.stringify(normClients));
               localStorage.setItem("agenda.plan", JSON.stringify(normPlan));
               onClose(); onSaved && onSaved();
@@ -472,17 +570,85 @@ function ImportModal({ open, onClose, onSaved }){
   );
 }
 
+// === Prioridad: helpers ===
+function getPriorityMeta(item, planByDate, planDatesSorted){
+  const label = getPriorityLabelNow(item, planByDate, planDatesSorted);
+  const clsMap = {
+    "Hoy": "bg-red-50 text-red-700 border-red-200",
+    "Esta semana": "bg-orange-50 text-orange-700 border-orange-200",
+    "La semana que viene": "bg-yellow-50 text-yellow-700 border-yellow-200",
+    "Próxima visita": "bg-indigo-50 text-indigo-700 border-indigo-200",
+  };
+  const meta = { label, cls: clsMap[label]||"border-gray-200 text-gray-600" };
+  if (label==="Próxima visita"){
+    const due = nextVisitDate(item.clienteId, item.anchorDate||ymd(new Date()), planByDate, planDatesSorted);
+    meta.dueText = due ? formatShortDate(new Date(due)) : undefined;
+  }
+  return meta;
+}
+
+function getPriorityLabelNow(item, planByDate, planDatesSorted){
+  const now = stripTime(new Date());
+  const anchorIso = item.anchorDate || ymd(now);
+  const anchor = parseIso(anchorIso);
+  const p = item.prioridad || "hoy";
+  if (p === "hoy"){
+    return isSameIso(ymd(now), anchorIso) ? "Hoy" : "Hoy";
+  }
+  if (p === "esta_semana"){
+    if (isSameWeek(now, anchor)){
+      return isSameIso(ymd(now), anchorIso) ? "Hoy" : "Esta semana";
+    }
+    return "Esta semana";
+  }
+  if (p === "la_semana_que_viene"){
+    const target = addDays(anchor, 7);
+    if (isSameWeek(now, target)){
+      return isSameIso(ymd(now), ymd(target)) ? "Hoy" : "Esta semana";
+    }
+    return now < target ? "La semana que viene" : "Esta semana";
+  }
+  if (p === "proxima_visita"){
+    const next = nextVisitDate(item.clienteId, anchorIso, planByDate, planDatesSorted);
+    if (!next) return "Próxima visita";
+    const nextDate = parseIso(next);
+    if (isSameIso(ymd(now), next)) return "Hoy";
+    if (isSameWeek(now, nextDate)) return "Esta semana";
+    return "Próxima visita";
+  }
+  return "";
+}
+
+function priorityWeight(label){
+  // Menor = más urgente
+  return label==="Hoy"?0 : label==="Esta semana"?1 : label==="La semana que viene"?2 : 3;
+}
+
+function nextVisitDate(clienteId, afterIso, planByDate, planDatesSorted){
+  if (!clienteId) return null;
+  for (const iso of planDatesSorted){
+    if (iso > afterIso){
+      const ids = planByDate[iso]||[];
+      if (ids.includes(clienteId)) return iso;
+    }
+  }
+  return null;
+}
+
 // === Helpers & datos ===
 function weekdayLabels(locale="es-ES", weekStartsOn=1){ const base=["L","M","X","J","V","S","D"]; if(weekStartsOn===1) return base; const i=weekStartsOn%7; return base.slice(i).concat(base.slice(0,i)); }
 function buildMonthMatrix(year, month, weekStartsOn=1){ const first=new Date(year,month,1); const off=mod(first.getDay()-weekStartsOn,7); const start=stripTime(new Date(year,month,1-off)); const weeks=[]; let cur=new Date(start); for(let w=0;w<6;w++){ const row=[]; for(let d=0;d<7;d++){ row.push(new Date(cur)); cur.setDate(cur.getDate()+1);} weeks.push(row);} return weeks; }
 function buildWeekRow(anchor, weekStartsOn=1){ const s=startOfWeek(anchor,weekStartsOn); const arr=[]; for(let i=0;i<7;i++){ const d=new Date(s); d.setDate(s.getDate()+i); arr.push(d);} return arr; }
 function startOfWeek(date, weekStartsOn=1){ const d=stripTime(date); const diff=mod(d.getDay()-weekStartsOn,7); d.setDate(d.getDate()-diff); return d; }
 function endOfWeek(date, weekStartsOn=1){ const s=startOfWeek(date,weekStartsOn); const e=new Date(s); e.setDate(s.getDate()+6); return e; }
+function isSameWeek(a,b){ const sa=startOfWeek(a,1).getTime(); const sb=startOfWeek(b,1).getTime(); return sa===sb; }
 function stripTime(d){ const nd=new Date(d); nd.setHours(0,0,0,0); return nd; }
 function addDays(d,n){ const nd=new Date(d); nd.setDate(nd.getDate()+n); return stripTime(nd); }
 function addMonths(d,n){ const nd=new Date(d); nd.setMonth(nd.getMonth()+n,1); return stripTime(nd); }
 function mod(n,m){ return ((n%m)+m)%m; }
 function ymd(d){ const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,"0"); const day=String(d.getDate()).padStart(2,"0"); return `${y}-${m}-${day}`; }
+function parseIso(s){ const [Y,M,D]=s.split('-').map(n=>parseInt(n,10)); return new Date(Y, M-1, D); }
+function isSameIso(aIso, bIso){ return aIso===bIso; }
 function monthName(date, locale="es-ES", variant="long"){ return new Intl.DateTimeFormat(locale,{month:variant}).format(date); }
 function formatMonthYear(date, locale="es-ES"){ return `${capitalize(monthName(date,locale,"long"))} ${date.getFullYear()}`; }
 function formatWeekRange(s,e,locale="es-ES"){ const sameM=s.getMonth()===e.getMonth(); const sameY=s.getFullYear()===e.getFullYear(); const sd=s.getDate(), ed=e.getDate(); const sm=monthName(s,locale,"short"), em=monthName(e,locale,"short"); if(sameM) return `${sd}–${ed} ${sm} ${s.getFullYear()}`; if(sameY) return `${sd} ${sm} – ${ed} ${em} ${s.getFullYear()}`; return `${sd} ${sm} ${s.getFullYear()} – ${ed} ${em} ${e.getFullYear()}`; }
@@ -514,6 +680,9 @@ if (!window.__agendaTestsRan){
     const u=uniqBy([{v:1},{v:1},{v:2}], x=>x.v); console.assert(u.length===2,'uniqBy');
     console.assert(uniqueKey('123','X')!==uniqueKey(null,'x'),'uniqueKey id vs name');
     console.assert(isIsoDate('2025-09-27') && !isIsoDate('27-09-2025'), 'isIsoDate formato');
+    // prioridad helpers
+    const lbl = getPriorityLabelNow({prioridad:'la_semana_que_viene', anchorDate:'2025-09-22'}, {}, []);
+    console.assert(typeof lbl==='string','priority label');
     window.__agendaTestsRan=true;
   }catch(err){ console.warn('Tests fallaron', err); }
 }
