@@ -14,12 +14,33 @@
     <style>
       html, body, #root { height: 100%; }
       body { -webkit-tap-highlight-color: transparent; }
+      .sys-msg { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
     </style>
   </head>
   <body class="bg-white">
-    <div id="root"></div>
+    <div id="root" class="min-h-screen"></div>
 
-    <!-- Cargamos la app separada para reducir tamaño del archivo del canvas -->
-    <script type="text/babel" src="./app.js?v=5"></script>
+    <!-- Mensaje de carga y diagnóstico si falla el script externo -->
+    <script>
+      (function(){
+        var el = document.getElementById('root');
+        if (el) {
+          el.innerHTML = '<div class="sys-msg p-4 text-gray-600">Cargando…</div>';
+        }
+        // Si el script externo no carga, mostramos una pista útil.
+        window.addEventListener('error', function(){
+          var r = document.getElementById('root');
+          if (!r) return;
+          r.innerHTML = '<div class="sys-msg p-4 text-red-700">' +
+            '<p class="font-semibold mb-2">No se pudo cargar el script de la app.</p>' +
+            '<p>Comprueba que el archivo <code>app_v6.js</code> está en la <strong>misma carpeta</strong> que <code>index.html</code> y que el nombre coincide exactamente (mayúsculas/minúsculas cuentan).</p>' +
+            '<p class="mt-2">En GitHub Pages, sube ambos a la <strong>raíz</strong> del repositorio. En este visor del canvas, la ruta debe ser relativa (./app_v6.js).</p>' +
+          '</div>';
+        }, { once: true });
+      })();
+    </script>
+
+    <!-- Carga de la app. Si usas app.js en tu repo, cambia la ruta abajo. -->
+    <script type="text/babel" data-presets="env,react" src="./app_v6.js?v=7"></script>
   </body>
 </html>
