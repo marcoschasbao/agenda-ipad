@@ -1,0 +1,1164 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Agenda iOS · DueDate (popover calendario)</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#0a84ff">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { iosBlue: '#0a84ff' }
+        }
+      }
+    };
+  </script>
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    .no-select { user-select: none; -webkit-user-select: none; }
+    .chip { border-radius: 9999px; padding: 0.15rem 0.6rem; font-size: .75rem; }
+    .icon-btn { width: 28px; height: 28px; display:flex; align-items:center; justify-content:center; border-radius: 9999px; }
+    .icon { width: 16px; height: 16px; display:block; }
+    .badge-ios { position:absolute; top:0; right:0; transform: translate(25%,-25%); min-width:18px; height:18px; padding:0 5px; border-radius:9999px; font-size:10px; color:white; background:#DC2626; display:flex; align-items:center; justify-content:center; border:2px solid white; }
+    #fallback { display:none; padding:12px; }
+    .cal-cell { aspect-ratio: 1 / 1; }
+    .popover-enter { opacity: 0; transform: scale(0.96); }
+    .popover-enter-active { opacity: 1; transform: scale(1); transition: opacity .15s ease, transform .15s ease; }
+    .popover-exit { opacity: 1; transform: scale(1); }
+    .popover-exit-active { opacity: 0; transform: scale(0.96); transition: opacity .12s ease, transform .12s ease; }
+  </style>
+
+    <!-- IndexedDB helper for persistence -->
+    <script src="https://unpkg.com/localforage/dist/localforage.min.js"></script>
+</head>
+<body class="bg-white text-gray-900">
+  <noscript><div style="padding:12px;color:#b91c1c">Activa JavaScript.</div></noscript>
+  <div id="fallback" class="text-sm text-red-700 bg-red-50 border border-red-200 rounded m-2">
+    No se han podido cargar las librerías desde la red. Conéctate a internet o sirve el archivo con un servidor local.
+  </div>
+
+  <!-- JSON embebido del usuario -->
+  <script type="application/json" id="clientes-data">[{"id":"1030755","nombre":"BAR A MOTORA"},{"id":"459565","nombre":"PULPERIA O TABERNEIRO S.L."},{"id":"459918","nombre":"CAFETERIA TOFFE"},{"id":"459578","nombre":"CAFE OURENSE"},{"id":"594712","nombre":"COSTILLAR"},{"id":"460327","nombre":"RESTAURANTE PIZZERIA TOSKANA"},{"id":"933322","nombre":"CAFETER\u00cdA A XEITOSI\u00d1A"},{"id":"1169262","nombre":"PORRON BEACH"},{"id":"1170372","nombre":"ARYAN DONER KEBAB"},{"id":"460010","nombre":"CAFE BAR NOVA ERA"},{"id":"1060780","nombre":"ANOU CAFE BAR"},{"id":"459561","nombre":"GUADALUPE"},{"id":"459652","nombre":"R7"},{"id":"459564","nombre":"BAR BERBERECHO"},{"id":"477685","nombre":"PE NA AUGA"},{"id":"462175","nombre":"CAFE BAR PUNTA PALLEIRO"},{"id":"459655","nombre":"CAFETERIA RIA DE AROUSA"},{"id":"1166113","nombre":"ANCLA KEBAB"},{"id":"1098458","nombre":"MARRAK\u00cbCH BAR"},{"id":"928289","nombre":"ORMAPU"},{"id":"459526","nombre":"BAR FORNOS"},{"id":"459658","nombre":"RESTAURANTE CHICOLINO"},{"id":"639389","nombre":"CAFE MANUELA"},{"id":"459809","nombre":"AS RODAS"},{"id":"459545","nombre":"CAMPING BARRA\u00d1A"},{"id":"459870","nombre":"CAFETERIA CASTELAO"},{"id":"1133369","nombre":"PAN COMIDO"},{"id":"461144","nombre":"O FURANCHO DO LOUREIRO"},{"id":"604036","nombre":"BROS"},{"id":"459577","nombre":"CB A LAREIRA"},{"id":"459558","nombre":"BAR COFRADIA"},{"id":"907127","nombre":"GINLAB"},{"id":"460143","nombre":"LA ATLANTICA"},{"id":"822862","nombre":"CAFE BAR TREBOL"},{"id":"461158","nombre":"NAUTICO CABO DE CRUZ"},{"id":"459530","nombre":"BAR CENTRAL"},{"id":"462080","nombre":"LA BURRATA"},{"id":"459503","nombre":"CAFE BAR PI\u00d1EIROS"},{"id":"477474","nombre":"O ASUBIO TABERNA"},{"id":"461861","nombre":"PUB PARADISE"},{"id":"445312","nombre":"CAFE BAR TIO MANOLO"},{"id":"444072","nombre":"CB LAS PALMERAS"},{"id":"459365","nombre":"CB NEVADA"},{"id":"1167372","nombre":"S&G HOME"},{"id":"471731","nombre":"AIRI\u00d1OS CAFE BAR"},{"id":"445054","nombre":"CERV OFICINA"},{"id":"1108402","nombre":"BAR DE ANGIE"},{"id":"461160","nombre":"MADINA KEBAB LALIN"},{"id":"461120","nombre":"TAURO"},{"id":"444307","nombre":"BAR GALAXIA"},{"id":"444070","nombre":"CAFE CAMILO"},{"id":"462112","nombre":"AXI\u00d1A CAF\u00c9"},{"id":"988585","nombre":"COPYGRAPHICS"},{"id":"444768","nombre":"OASIS 2"},{"id":"444632","nombre":"BAR PACHA"},{"id":"445160","nombre":"CAFE RECANTO"},{"id":"461121","nombre":"ARCON ASADOR"},{"id":"460156","nombre":"PAZO BENDOIRO RESTAURANTE"},{"id":"444504","nombre":"TAPERIA SIGLO XXI"},{"id":"444472","nombre":"BURGUER LA FLOR"},{"id":"460789","nombre":"O FOGAR DE ASOREY"},{"id":"459703","nombre":"BAR DO PEPE"},{"id":"444545","nombre":"ALTO DA PENA PULPER\u00cdA"},{"id":"444074","nombre":"CAFE BAR TABOADA"},{"id":"445051","nombre":"A DE JACOME"},{"id":"444057","nombre":"BAR TERRA NOSA"},{"id":"590948","nombre":"RESTAURANTE CITY CHINO"},{"id":"471863","nombre":"TABERNA DE VENTO"},{"id":"1168182","nombre":"CAMPEONATO DE BILLAR LAL\u00cdN ARENA"},{"id":"1165572","nombre":"HUTTOPIA CAMINOS DE GALICIA"},{"id":"445112","nombre":"CLUB FUEGO LATINO"},{"id":"444054","nombre":"CASA MANUEL FAILDE (TIENDA)"},{"id":"476014","nombre":"PARRILLADA ALONSO"},{"id":"471849","nombre":"TABERNA DO TAIS"},{"id":"585139","nombre":"O NOSO BAR"},{"id":"471815","nombre":"A PONTE MESON"},{"id":"637501","nombre":"FINCA DA ROCHA"},{"id":"459641","nombre":"RESTAURANTE BAHIA"},{"id":"459520","nombre":"PUB ARENAS"},{"id":"459552","nombre":"CERVECERIA LA REGIONAL"},{"id":"461921","nombre":"MOTOR CAFE"},{"id":"974405","nombre":"LA PAJARA"},{"id":"968650","nombre":"BAR LOMBI\u00d1A"},{"id":"461867","nombre":"TORRE XUNQUEIRA"},{"id":"1113652","nombre":"LA OFI"},{"id":"461079","nombre":"BARBANZA GOLF"},{"id":"639912","nombre":"MALECON"},{"id":"459595","nombre":"A TERRAZA DE CHICOLINO"},{"id":"1159460","nombre":"CAPRICHOS BAR"},{"id":"461070","nombre":"BOIRO PADEL"},{"id":"459651","nombre":"RESTAURANTE ALBORADA"},{"id":"1165268","nombre":"STOP BAR"},{"id":"968667","nombre":"A TABERNA DA PONTE"},{"id":"459584","nombre":"MESON O FACHO"},{"id":"459596","nombre":"VINOTECA LA CALLE"},{"id":"459524","nombre":"CAFE RESTAURANTE FLORIDA"},{"id":"459547","nombre":"LA UBI"},{"id":"460282","nombre":"CERVECERIA PLAZA"},{"id":"459535","nombre":"BARBANTIA"},{"id":"459834","nombre":"A BATEA DE JUAN"},{"id":"459539","nombre":"PIZZERIA ADRIA"},{"id":"459521","nombre":"YORK"},{"id":"459496","nombre":"CB PASEO TOULI\u00d1A"},{"id":"444234","nombre":"ES GARLOU - CAF"},{"id":"848917","nombre":"FASTER MEALS BOIRO"},{"id":"823729","nombre":"CERVECERIA TECATE"},{"id":"117051","nombre":"PEPPO PIZZERIA ITALIANA"},{"id":"459646","nombre":"BAR ADRIO"},{"id":"462081","nombre":"GORDONS RODICIO"},{"id":"615425","nombre":"CAFETERIA AGORA"},{"id":"459541","nombre":"LA TABLITA"},{"id":"1119310","nombre":"CAFETERIA ALQUIMIA"},{"id":"976531","nombre":"A DE SONIA"},{"id":"1130653","nombre":"CHIRINGUITO O FARO"},{"id":"459525","nombre":"CAFE MATO"},{"id":"460583","nombre":"CAFETERIA TRES CATORCE"},{"id":"459553","nombre":"A FIADA CAFETERIA"},{"id":"459518","nombre":"MESON ASADOR ARUME"},{"id":"461954","nombre":"CAFE BAR LONDON"},{"id":"461715","nombre":"MANOLO DO CAFE"},{"id":"917073","nombre":"ENTREPANS"},{"id":"1136476","nombre":"CHIRINGUITO XOBRE"},{"id":"1060617","nombre":"PALMEIRA BEACH"},{"id":"461706","nombre":"BAR O VILAR"},{"id":"461709","nombre":"BAR BALUARTE"},{"id":"461740","nombre":"CHEVENI"},{"id":"460628","nombre":"CHIRINGO TOURO"},{"id":"459550","nombre":"BAR CENTRO"},{"id":"991335","nombre":"HOTEL LOMBI\u00d1A"},{"id":"1131888","nombre":"CANTINA DA TOMADA"},{"id":"459633","nombre":"CLUB RELAX"},{"id":"461716","nombre":"SUPER BALDOMERO"},{"id":"461541","nombre":"BAR ANTOXO"},{"id":"461232","nombre":"PIZZER\u00cdA GALEGA"},{"id":"461289","nombre":"CUPPEDIA"},{"id":"471846","nombre":"QUIROS PUB"},{"id":"459492","nombre":"C&L MESON"},{"id":"460133","nombre":"CAFE BAR DEBIBIAN"},{"id":"461724","nombre":"CASA RULI\u00d1A"},{"id":"471875","nombre":"A ROBLEDA PARRILLADA"},{"id":"471857","nombre":"GALLAECIA CAFE BAR"},{"id":"471804","nombre":"LA PLAZA CAFE BAR"},{"id":"460849","nombre":"RESTAURANTE O CAMI\u00d1O"},{"id":"445150","nombre":"FM SPORT CAF\u00c9"},{"id":"459941","nombre":"TENTACIONS GOLOSINAS"},{"id":"460352","nombre":"PERRLA"},{"id":"461020","nombre":"CAFE BAR PUKARA"},{"id":"1159180","nombre":"CENTRO CAF\u00c9 BAR"},{"id":"471843","nombre":"CARPINTEIRAS HOSTAL"},{"id":"471842","nombre":"SANCHEZ CASA"},{"id":"1160550","nombre":"A CASA DO PILLADO"},{"id":"471796","nombre":"CENTRAL BAR"},{"id":"920753","nombre":"TEIMAR"},{"id":"972182","nombre":"BAR A DE ALEJANDRO"},{"id":"461523","nombre":"BAR BAHIA"},{"id":"1112081","nombre":"XAMONERIA NORDESTE"},{"id":"459765","nombre":"CERVECERIA MORRISON"},{"id":"460196","nombre":"KEBAP ESTAMBUL"},{"id":"459684","nombre":"BAR SAN ISIDRO"},{"id":"459586","nombre":"BAR NUEVO"},{"id":"460434","nombre":"TASCA DO XANXO"},{"id":"460113","nombre":"EL GOURMET ALJAN"},{"id":"1102006","nombre":"GASTRO BAR BEIZOS"},{"id":"462155","nombre":"EL GOLIMBREO"},{"id":"460331","nombre":"CAFE BAR MONCHO DO OSLO"},{"id":"461603","nombre":"BAR TALLANTE"},{"id":"629772","nombre":"CHIRINGUITO CASTRO"},{"id":"461597","nombre":"CASA DO MAR"},{"id":"910397","nombre":"A DE MARIS"},{"id":"461512","nombre":"BOUTIQUE DEL PAN ISABEL"},{"id":"460288","nombre":"ALIMENTACION BAR CARMEN"},{"id":"459505","nombre":"CERVECERIA BOTAVARA"},{"id":"1031604","nombre":"BEIZOS BEACH"},{"id":"461537","nombre":"RESTAURANTE O PASEO"},{"id":"459610","nombre":"ULTRAMARINOS CONSUELO"},{"id":"1030757","nombre":"O XARDIN DO CHARLIN"},{"id":"1165415","nombre":"DALLE PEDAL"},{"id":"461526","nombre":"PORRON 2.0"},{"id":"460681","nombre":"CAFETERIA CEOS"},{"id":"461520","nombre":"ZUM-ZUM"},{"id":"461606","nombre":"BOUTIQUE DEL PAN ISABEL"},{"id":"460453","nombre":"CAFE CERV BOTAVARA"},{"id":"928267","nombre":"ESTANCO DE LOURDES"},{"id":"1002749","nombre":"VERMUTERIA TAGEN ATA"},{"id":"461283","nombre":"CANTINA DO MERCANTIL"},{"id":"461569","nombre":"LA CUATRO"},{"id":"461853","nombre":"A TABERNA"},{"id":"461550","nombre":"A DE MAYTE"},{"id":"461312","nombre":"BAR CLANDESTINO"},{"id":"461898","nombre":"COCOLUCHE"},{"id":"462149","nombre":"CANTINA  NAUTICO RIBEIRA"},{"id":"999938","nombre":"DVICIO"},{"id":"981649","nombre":"LA PARRA"},{"id":"461579","nombre":"BAR PLAZA"},{"id":"1117162","nombre":"BAR O PORTO"},{"id":"1029557","nombre":"BASO\u00d1AS MAR"},{"id":"461540","nombre":"CONFITERIA CAFETERIA EL QUILLO"},{"id":"974839","nombre":"CAFE BAR ESMORGA"},{"id":"1019953","nombre":"A PEQUECHA"},{"id":"461556","nombre":"TASCA DO PEIRAO"},{"id":"626189","nombre":"A BODEGA"},{"id":"1029055","nombre":"HOTEL PUNTA COUSO"},{"id":"967035","nombre":"RESTAURANTE CASA FONTAO"},{"id":"461534","nombre":"BAR DIAMOND"},{"id":"461530","nombre":"MESON CASTELAO"},{"id":"462154","nombre":"CAFE BAR ANGEL O FACHO"},{"id":"1083237","nombre":"CAFE BAR A RUA"},{"id":"995929","nombre":"BRASERIA CABA\u00d1A"},{"id":"461680","nombre":"PARRILLADA CALO"},{"id":"444621","nombre":"BAR FERVI"},{"id":"460729","nombre":"BEST DONER KEBAB"},{"id":"460093","nombre":"BODEGON O CHANQUEIRO"},{"id":"444065","nombre":"CAF ALFONSELLE"},{"id":"444460","nombre":"CAFE BAR ORLY"},{"id":"444799","nombre":"RESTAURANTE PONTI\u00d1AS"},{"id":"461330","nombre":"TABERNA RUA"},{"id":"445299","nombre":"CAFE BAR ABASTOS"},{"id":"1121499","nombre":"CASA CURRAS"},{"id":"460440","nombre":"LORIGA CAFETER\u00cdA"},{"id":"445141","nombre":"CAFE KUBOS"},{"id":"460279","nombre":"LALIN DONER KEBAB"},{"id":"444216","nombre":"BAR NIZA"},{"id":"461151","nombre":"CAFE CASINO LALIN"},{"id":"444064","nombre":"RESTAURANTE CABANAS"},{"id":"444658","nombre":"RESTAURANTE VENEZIA"},{"id":"939727","nombre":"CAFE BAR AROMA"},{"id":"459998","nombre":"A MORRI\u00d1A CAFE BAR"},{"id":"461398","nombre":"PUB RUTA 33"},{"id":"462003","nombre":"BAR PLAZOLETA"},{"id":"1119990","nombre":"TROULA EVENTOS"},{"id":"444523","nombre":"CAF ARUME"},{"id":"444991","nombre":"BAR GRAN SOL"},{"id":"585121","nombre":"CASA DA CAPILLA"},{"id":"1048537","nombre":"KIZOMBA BAR"},{"id":"461998","nombre":"CAFE ATLY"},{"id":"459795","nombre":"MADINA SILLEDA DONER KEBAB"},{"id":"461813","nombre":"BAR MARIL"},{"id":"471779","nombre":"SANBARR CAFETERIA"},{"id":"471783","nombre":"PULMARI\u00d1O BAR"},{"id":"1066878","nombre":"CASA CON ENCANTO"},{"id":"1105341","nombre":"ENCANTO DO CAMI\u00d1O"},{"id":"459423","nombre":"VICTORINO"},{"id":"459760","nombre":"VINOTECA CADEIRA"},{"id":"1162314","nombre":"LA TXAPELA"},{"id":"444150","nombre":"PARRLL COTELI\u00d1O"},{"id":"940045","nombre":"CAFE BAR UGIA"},{"id":"1023722","nombre":"PADEL UGIA SILLEDA"},{"id":"1064382","nombre":"CHIRINDINO"},{"id":"1114481","nombre":"A FONTE"},{"id":"995613","nombre":"A DE CHEFA"},{"id":"1137323","nombre":"BAR PORTO DE AGUI\u00d1O"},{"id":"934272","nombre":"CHIRINGUITO LADEIRA"},{"id":"1070469","nombre":"O PATIO DAS DELICIAS"},{"id":"461261","nombre":"BAR FERRUXE"},{"id":"461626","nombre":"BAR PEQUE\u00d1O"},{"id":"1007235","nombre":"BAR DO PORTO"},{"id":"460363","nombre":"REVIRAVOLTA"},{"id":"459644","nombre":"CAFE BAR CASA PANCHO S.R.L."},{"id":"461269","nombre":"A CHABOLA"},{"id":"460597","nombre":"FARO DE SALVORA"},{"id":"460419","nombre":"EL MATADERO ASADOR"},{"id":"993107","nombre":"CENTRO RECREATIVO DE ARTES"},{"id":"461697","nombre":"HORNO NOVAS"},{"id":"461692","nombre":"BAR JUNCO"},{"id":"460211","nombre":"BAR DA SILVA"},{"id":"461618","nombre":"CAFE BAR BALIEIROS"},{"id":"461536","nombre":"CINES RIBEIRA (CORU\u00d1A-FILMS)"},{"id":"461531","nombre":"RESTAURANTE AIROA"},{"id":"461555","nombre":"OTEAR"},{"id":"598722","nombre":"O NI\u00d1O DO CUCO"},{"id":"460254","nombre":"BOTTER CAFE"},{"id":"461423","nombre":"A RECOVEIRA"},{"id":"461572","nombre":"CAFETERIA VIFER"},{"id":"461575","nombre":"BAR O MALECON"},{"id":"459969","nombre":"A CUBA"},{"id":"462251","nombre":"REST CLUB NAUTICO DE RIBEIRA"},{"id":"459936","nombre":"TIO PEPE"},{"id":"460883","nombre":"O XANTAR DE PEPE"},{"id":"460568","nombre":"CAFE BAR ARCOS"},{"id":"461582","nombre":"TRISKEL"},{"id":"461542","nombre":"TRES HERMANOS"},{"id":"969650","nombre":"PIZZAS LA TANA"},{"id":"461519","nombre":"RESTAURANTE XARDIN"},{"id":"982697","nombre":"JAN"},{"id":"461558","nombre":"PUB ALOHA"},{"id":"459575","nombre":"BAR ATALAIA"},{"id":"459500","nombre":"CERVECERIA RUADA"},{"id":"461686","nombre":"CHURRASQUERIA ALBARI\u00d1O"},{"id":"460188","nombre":"O BAR DE CARLOS"},{"id":"888740","nombre":"CHIRINGUITO FURNAS"},{"id":"461690","nombre":"BAR RESTAURANTE O CASTRO"},{"id":"460979","nombre":"A CASILLA"},{"id":"459569","nombre":"CASA DO DEMO"},{"id":"461704","nombre":"CASA HERMO"},{"id":"461698","nombre":"BAR FURNAS"},{"id":"1001799","nombre":"CAMPING CASTRO DE BARO\u00d1A"},{"id":"461689","nombre":"BAR 85"},{"id":"459635","nombre":"ULTRAMARINOS SOTO"},{"id":"583294","nombre":"CAFETERIA RIO TE"},{"id":"1166283","nombre":"CURRAL DO MARQU\u00c9S"},{"id":"459497","nombre":"ULTRAMARIA"},{"id":"461617","nombre":"BAR J J"},{"id":"1163869","nombre":"A DE CATI BAR"},{"id":"1167203","nombre":"CHIRINGUITO NORAY"},{"id":"590684","nombre":"PIZZAPARK"},{"id":"459696","nombre":"CAFETERIA CURRAS"},{"id":"459758","nombre":"CAFE XANDU"},{"id":"471765","nombre":"GALICIA CAFETERIA"},{"id":"471715","nombre":"CASA LODEIRO A D#RAFAEL"},{"id":"477350","nombre":"RINCON BAR"},{"id":"445111","nombre":"MODESTO CHURRASQUERIA"},{"id":"1037485","nombre":"EL CAFE DE AME"},{"id":"461999","nombre":"BAR O BARRACON"},{"id":"444375","nombre":"O RECREO DE JAVIER"},{"id":"471836","nombre":"DESITO CAFE BAR"},{"id":"471761","nombre":"CACTUS CAFETERIA DISCO"},{"id":"444754","nombre":"CAFE LAGO"},{"id":"471738","nombre":"LA VIOLETA CAFE BAR"},{"id":"471749","nombre":"A ESGHALLA CASA DE COMIDAS"},{"id":"471760","nombre":"CAFE DE RAMON"},{"id":"471753","nombre":"CASA DON DIN"},{"id":"459601","nombre":"PUB 4,20"},{"id":"459900","nombre":"CB ALAMEDA"},{"id":"461135","nombre":"LA EMBAJADA"},{"id":"814301","nombre":"YUMI YAI PARK SC"},{"id":"1028810","nombre":"A BOLERA"},{"id":"459616","nombre":"CB TURKA KEBAB HOUSE"},{"id":"1169363","nombre":"LA NAVIERA"},{"id":"459725","nombre":"LA TAPADERA"},{"id":"459796","nombre":"M\u00c1S BATEA"},{"id":"968657","nombre":"A CASA DE MANUEL"},{"id":"477606","nombre":"CAFETERIA BARQUI\u00d1A"},{"id":"1155444","nombre":"LOW COST 24H POBRA DO CARAMI\u00d1AL"},{"id":"1155416","nombre":"KIOSKO ESCOLAR LUZ"},{"id":"459597","nombre":"BAR CUROTI\u00d1A"},{"id":"459622","nombre":"HAMBURGUESERIA MORDISCOS"},{"id":"459598","nombre":"MESON DON MIGUEL"},{"id":"803373","nombre":"CAFETERIA RIA DE AROUSA"},{"id":"461595","nombre":"BAR CRUCE"},{"id":"461593","nombre":"BAR TENERIFE"},{"id":"462165","nombre":"PALMERAS"},{"id":"461694","nombre":"BAR MARI\u00d1O"},{"id":"461696","nombre":"CAMPING FRAGA BALADA"},{"id":"459638","nombre":"BAR BUELA"},{"id":"905521","nombre":"O CORRAL DE PREGO"},{"id":"1160095","nombre":"STAROIL DODRO CAFETERIA"},{"id":"1016333","nombre":"KEBAB LA ESTAMBUL 2"},{"id":"1137161","nombre":"MURALLA ORIENTAL"},{"id":"460102","nombre":"A FIESTRA"},{"id":"461546","nombre":"BURGUER FLIP"},{"id":"461552","nombre":"BAR SAMBA"},{"id":"461551","nombre":"TABERNA VENTOS VELLOS"},{"id":"461576","nombre":"BULEBAR MALECON"},{"id":"461573","nombre":"CAFE BAR GALEON"},{"id":"461562","nombre":"ALBATROS"},{"id":"461557","nombre":"A CASEIRA"},{"id":"461616","nombre":"RESTAURANTE BAIUCA"},{"id":"982009","nombre":"PUB IDOLOS"},{"id":"461543","nombre":"BAR XIADA"},{"id":"999178","nombre":"O DELAS"},{"id":"1058324","nombre":"A TABERNA DE HORSE LUIS"},{"id":"461559","nombre":"BAR 14"},{"id":"460488","nombre":"O DA RUBIA"},{"id":"1123878","nombre":"CAPITAN MORGAN"},{"id":"1155447","nombre":"COMERCIAL ALUMINIOS MALLO AREA SL"},{"id":"459944","nombre":"A ILLA"},{"id":"1123874","nombre":"ALDEA PLAYA O VILAR"},{"id":"1141624","nombre":"A TABERNETA"},{"id":"459979","nombre":"O XARDIN DE CORRUBEDO"},{"id":"444254","nombre":"A ADEGA CAF\u00c9 BAR"},{"id":"462245","nombre":"CAFE BAR LA ROCA"},{"id":"1009764","nombre":"CARNICERIA BOGA 2"}]</script>
+  <script type="application/json" id="plan-data">[{"fecha":"2025-09-29","clienteIds":["1030755","459565","459918","459578","594712","460327","933322","1169262","1170372","460010","1060780","459561","459652","459564","477685","462175","459655","1166113","1098458"]},{"fecha":"2025-09-30","clienteIds":["928289","459526","459658","639389","459809","459545","459870","1133369","461144","604036","459577","459558","907127","460143","822862","461158","459530","462080","459503"]},{"fecha":"2025-10-01","clienteIds":["477474","461861","445312","444072","459365","1167372","471731","445054","1108402","461160","461120","444307","444070","462112","988585","444768","444632","445160","461121"]},{"fecha":"2025-10-02","clienteIds":["460156","444504","444472","460789","459703","444545","444074","445051","444057","590948","471863","1168182","1165572","445112","444054","476014","471849","585139","471815"]},{"fecha":"2025-10-03","clienteIds":["637501","459641","459520","459552","461921","974405","968650","461867","1113652","461079","639912","459595","1159460","461070","459651","1165268","968667","459584","459596"]},{"fecha":"2025-10-06","clienteIds":["459524","459547","460282","459535","459834","459539","459521","459496","444234","848917","823729","117051","459646","462081","615425","459541","1119310","976531","1130653"]},{"fecha":"2025-10-07","clienteIds":["459525","460583","459553","459518","461954","461715","917073","1136476","1060617","461706","461709","461740","460628","459550","991335","1131888","459633","461716","461541"]},{"fecha":"2025-10-09","clienteIds":["461232","461289","471846","459492","460133","461724","471875","471857","471804","460849","445150","459941","460352","461020","1159180","471843","471842","1160550","471796"]},{"fecha":"2025-10-10","clienteIds":["920753","972182","461523","1112081","459765","460196","459684","459586","460434","460113","1102006","462155","460331","461603","629772","461597","910397","461512","460288"]},{"fecha":"2025-10-13","clienteIds":["459505","1031604","461537","459610","1030757","1165415","461526","460681","461520","461606","460453","928267","1002749","461283","461569","461853","461550","461312","461898"]},{"fecha":"2025-10-14","clienteIds":["462149","999938","981649","461579","1117162","1029557","461540","974839","1019953","461556","626189","1029055","967035","461534","461530","462154","1083237","995929","461680"]},{"fecha":"2025-10-15","clienteIds":["444621","460729","460093","444065","444460","444799","461330","445299","1121499","460440","445141","460279","444216","461151","444064","444658","939727","459998","461398"]},{"fecha":"2025-10-16","clienteIds":["462003","1119990","444523","444991","585121","1048537","461998","459795","461813","471779","471783","1066878","1105341","459423","459760","1162314","444150","940045","1023722"]},{"fecha":"2025-10-17","clienteIds":["1064382","1114481","995613","1137323","934272","1070469","461261","461626","1007235","460363","459644","461269","460597","460419","993107","461697","461692","460211","461618"]},{"fecha":"2025-10-20","clienteIds":["461536","461531","461555","598722","460254","461423","461572","461575","459969","462251","459936","460883","460568","461582","461542","969650","461519","982697","461558"]},{"fecha":"2025-10-21","clienteIds":["459575","459500","461686","460188","888740","461690","460979","459569","461704","461698","1001799","461689","459635","583294","1166283","459497","461617","1163869","1167203"]},{"fecha":"2025-10-22","clienteIds":["590684","459696","459758","471765","471715","477350","445111","1037485","461999","444375","471836","471761","444754","471738","471749","471760","471753"]},{"fecha":"2025-10-23","clienteIds":["459601","459900","461135","814301","1028810","459616","1169363","459725","459796","968657","477606","1155444","1155416","459597","459622","459598","803373","461595","461593"]},{"fecha":"2025-10-24","clienteIds":["462165","461694","461696","459638","905521","1160095"]},{"fecha":"2025-10-27","clienteIds":["1016333","1137161","460102","461546","461552","461551","461576","461573","461562","461557","461616","982009","461543","999178","1058324","461559","460488","1123878","1155447"]}]</script>
+
+  <div id="root" class="min-h-screen"></div>
+
+  <script>
+    function showFallback() { document.getElementById('fallback').style.display='block'; }
+  </script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin onerror="showFallback()"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin onerror="showFallback()"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin onerror="showFallback()"></script>
+
+  <script type="text/babel" data-presets="env,react">
+/* global React, ReactDOM */
+'use strict';
+
+/* ===== Dates ===== */
+const pad = (n) => String(n).padStart(2, '0');
+const toKey = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parseISO = (iso) => new Date(`${iso}T00:00:00`);
+const atMidnight = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+const sameDay = (a,b) => a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+const isWeekend = (d) => [0,6].includes(d.getDay());
+const isLaborable = (d) => !isWeekend(d);
+const isToday = (d) => sameDay(d, new Date());
+const startOfWeekMon = (d) => { const x = atMidnight(new Date(d)); const day = x.getDay(); const diff = (day===0? -6 : 1 - day); return addDays(x, diff); };
+const endOfWeekMon = (d) => addDays(startOfWeekMon(d), 6);
+const startOfNextWeekMon = (d) => startOfWeekMon(addDays(d,7));
+const nextWeek = (d) => addDays(d, 7);
+const prevWeek = (d) => addDays(d, -7);
+
+/* ===== UI formatting ===== */
+function formatMonthTitle(d){ return d.toLocaleDateString('es-ES', { month:'long', year:'numeric' }); }
+function formatWeekRange(d){
+  const s = startOfWeekMon(d), e = endOfWeekMon(d);
+  const fmt = (x)=> x.toLocaleDateString('es-ES', { weekday:'short', day:'2-digit', month:'short', year:'numeric' }).replace(/\.$/,'').toLowerCase();
+  return `${fmt(s)} – ${fmt(e)}`;
+}
+function formatDateLong(d){
+  return d.toLocaleDateString('es-ES', { weekday:'short', day:'2-digit', month:'long', year:'numeric'}).replace(/\.$/,'').toLowerCase();
+}
+
+/* ===== Storage + Embedded JSON ===== */
+const LS_CLIENTES = 'agenda.clientes';
+const LS_PLAN     = 'agenda.plan';
+
+function readEmbeddedJson(id){
+  try{ const el = document.getElementById(id); if (!el) return null; const txt = el.textContent || el.innerText || ''; return JSON.parse(txt); }catch(e){ return null; }
+}
+function loadClientes(){
+  try { const ls = localStorage.getItem(LS_CLIENTES); if (ls) { const arr = JSON.parse(ls); if (Array.isArray(arr) && arr.length) return arr; } } catch(e){}
+  const emb = readEmbeddedJson('clientes-data');
+  if (Array.isArray(emb) && emb.length){ localStorage.setItem(LS_CLIENTES, JSON.stringify(emb)); return emb; }
+  return [];
+}
+function loadPlan(){
+  try { const ls = localStorage.getItem(LS_PLAN); if (ls) { const arr = JSON.parse(ls); if (Array.isArray(arr) && arr.length) return arr; } } catch(e){}
+  const emb = readEmbeddedJson('plan-data');
+  if (Array.isArray(emb) && emb.length){ localStorage.setItem(LS_PLAN, JSON.stringify(emb)); return emb; }
+  return [];
+}
+
+const normalizeClientes = (arr)=> (Array.isArray(arr)?arr:[]).map(c=>({ id:String(c.id), nombre:String(c.nombre||'') }));
+const normalizePlan = (arr)=> (Array.isArray(arr)?arr:[]).map(p=>({ fecha:String(p.fecha), clienteIds:Array.isArray(p.clienteIds)?p.clienteIds.map(String):[] }));
+
+function expandPlan28(planBase, months=3){
+  if (!Array.isArray(planBase)) return [];
+  const today = new Date();
+  const maxDate = addDays(today, Math.round(months*30));
+  const out = [];
+  for (const item of planBase){
+    const d0 = parseISO(item.fecha);
+    let k=0;
+    while(true){
+      const d = addDays(d0, 28*k);
+      if (d>maxDate) break;
+      out.push({ fecha: toKey(d), clienteIds: item.clienteIds.slice() });
+      k++;
+    }
+  }
+  return out;
+}
+const planByDate = (plan)=>{ const map = new Map(); for (const p of plan){ const arr = map.get(p.fecha) || []; map.set(p.fecha, arr.concat(p.clienteIds)); } return map; };
+const clientesById = (clientes)=>{ const m = new Map(); for (const c of clientes) m.set(c.id, c); return m; };
+
+/* ===== Notes (dueDate-based) ===== */
+function makeId(){ return Math.random().toString(36).slice(2); }
+function daysDiff(fromDate, toDate){
+  const a = atMidnight(fromDate), b = atMidnight(toDate);
+  return Math.round((b - a) / (1000*60*60*24));
+}
+function chipFromDue(dueDateStr, today=new Date()){
+  const due = parseISO(dueDateStr);
+  const d = daysDiff(today, due);
+  if (d < 0) return { label:`Atrasada ${Math.abs(d)} d`, class:'bg-[#FF3B30] text-white' };
+  if (d === 0) return { label:'Hoy', class:'bg-[#FF3B30] text-white' };
+  if (d <= 3) return { label:`Quedan ${d} d`, class:'bg-[#FF9F0A] text-white' };
+  if (d <= 9) return { label:`Quedan ${d} d`, class:'bg-[#FFCC00] text-black' };
+  return { label:`Quedan ${d} d`, class:'bg-[#34C759] text-white' };
+}
+
+/* ===== Icons ===== */
+function PencilIcon(props){
+  return (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="icon" {...props}><path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M16 3l5 5-11 11H5v-5L16 3z"/><path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M15 4l5 5"/></svg>);
+}
+function TrashIcon(props){
+  return (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="icon" {...props}><path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M3 6h18M8 6l1-2h6l1 2M6 6l1 14h10l1-14"/></svg>);
+}
+function CheckIcon(props){
+  return (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="icon" {...props}><path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>);
+}
+function CalendarIcon(props){
+  return (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="icon" {...props}>
+    <rect x="3" y="5" width="18" height="16" rx="2" />
+    <path d="M16 3v4M8 3v4M3 10h18" />
+  </svg>);
+}
+
+/* ===== iOS Badge ===== */
+function IOSBadge({ count }){
+  if (!count || count<=0) return null;
+  const label = count > 9 ? '9+' : String(count);
+  return <span className="badge-ios">{label}</span>;
+}
+
+/* ===== Mini Calendar (compact) ===== */
+function MiniCalendar({value, onChange, small=true}){
+  const [cursor, setCursor] = React.useState(value ? new Date(value.getFullYear(), value.getMonth(), 1) : new Date());
+  const start = startOfWeekMon(new Date(cursor.getFullYear(), cursor.getMonth(), 1));
+  const days = Array.from({length:42}, (_,i)=> addDays(start, i));
+  const monthTitle = cursor.toLocaleDateString('es-ES', { month:'long', year:'numeric' });
+
+  return (
+    <div className={`border rounded-2xl p-2 bg-white shadow ${small?'w-[260px]':'w-full'}`}>
+      <div className="flex items-center justify-between mb-1">
+        <button className="icon-btn text-iosBlue" onClick={()=> setCursor(new Date(cursor.getFullYear(), cursor.getMonth()-1, 1))}>‹</button>
+        <div className="text-sm font-medium capitalize">{monthTitle}</div>
+        <button className="icon-btn text-iosBlue" onClick={()=> setCursor(new Date(cursor.getFullYear(), cursor.getMonth()+1, 1))}>›</button>
+      </div>
+      <div className="grid grid-cols-7 gap-1 text-xs text-gray-500 mb-1">
+        {['L','M','X','J','V','S','D'].map(d=> <div key={d} className="text-center">{d}</div>)}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {days.map((d,i)=>{
+          const esFinde = isWeekend(d);
+          const isThisMonth = d.getMonth()===cursor.getMonth();
+          const isSel = value && sameDay(d, value);
+          return (
+            <button key={i}
+              onClick={()=> !esFinde && onChange(atMidnight(d))}
+              disabled={esFinde}
+              className={`cal-cell relative rounded-xl border flex items-center justify-center p-1
+                ${isThisMonth?'bg-white':'bg-gray-50'}
+                ${esFinde?'opacity-50 cursor-not-allowed':''}
+                ${isSel?'bg-blue-600 text-white border-blue-600':''}
+                ${isToday(d) && !isSel ? 'ring-2 ring-iosBlue' : ''}
+              `}
+            >
+              <span>{d.getDate()}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="mt-2 text-right">
+        <button className="px-2 py-1 text-sm rounded-full border" onClick={()=> onChange(value)}>Listo</button>
+      </div>
+    </div>
+  );
+}
+
+/* ===== Import Modal ===== */
+function ModalImportar({ onClose, onImport }){
+  const [clientesTxt, setClientesTxt] = React.useState(document.getElementById('clientes-data')?.textContent || '');
+  const [planTxt, setPlanTxt] = React.useState(document.getElementById('plan-data')?.textContent || '');
+  const [err, setErr] = React.useState('');
+
+  function confirmar(){
+    try {
+      const c = JSON.parse(clientesTxt || '[]');
+      const p = JSON.parse(planTxt || '[]');
+      if (!Array.isArray(c) || !Array.isArray(p)) throw new Error('Formato inválido');
+      onImport({ clientesJson:c, planJson:p });
+    } catch { setErr('JSON inválido. Revisa el formato.'); }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center p-3 z-50">
+      <div className="bg-white w-full max-w-2xl rounded-2xl p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-lg font-semibold">Importar datos</div>
+          <button onClick={onClose} className="text-2xl">×</button>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <div className="text-sm font-medium mb-1">clientes.json</div>
+            <textarea className="w-full h-40 border rounded-md p-2 font-mono text-xs" value={clientesTxt} onChange={e=>setClientesTxt(e.target.value)} />
+          </div>
+          <div>
+            <div className="text-sm font-medium mb-1">plan.json</div>
+            <textarea className="w-full h-40 border rounded-md p-2 font-mono text-xs" value={planTxt} onChange={e=>setPlanTxt(e.target.value)} />
+          </div>
+        </div>
+        {err && <div className="text-sm text-red-600 mt-2">{err}</div>}
+        <div className="mt-3 flex items-center justify-end gap-2">
+          <button onClick={onClose} className="px-3 py-1 rounded-full border">Cancelar</button>
+          <button onClick={confirmar} className="px-3 py-1 rounded-full bg-iosBlue text-white">Guardar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ===== Note Modal (date row + popover) ===== */
+function ModalNota({ data, onClose, onSave }){
+  const [texto, setTexto] = React.useState(data.texto||'');
+  const [clienteNombre, setClienteNombre] = React.useState(data.clienteNombre||'');
+  const [due, setDue] = React.useState(data.dueDate ? parseISO(data.dueDate) : atMidnight(data.selectedDate || new Date()));
+  const [openCal, setOpenCal] = React.useState(false);
+  const anchorRef = React.useRef(null);
+
+  React.useEffect(()=>{
+    function onClickOutside(e){
+      if (!openCal) return;
+      const pop = document.getElementById('calendar-popover');
+      if (pop && (pop.contains(e.target) || anchorRef.current?.contains(e.target))) return;
+      setOpenCal(false);
+    }
+    document.addEventListener('mousedown', onClickOutside);
+    document.addEventListener('touchstart', onClickOutside, {passive:true});
+    return ()=>{
+      document.removeEventListener('mousedown', onClickOutside);
+      document.removeEventListener('touchstart', onClickOutside);
+    };
+  }, [openCal]);
+
+  const esCliente = data.tipo==='cliente';
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center p-3 z-50">
+      <div className="bg-white w-full max-w-xl rounded-2xl p-4 relative">
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-lg font-semibold">
+            {esCliente ? `Nota · ${data.clienteNombre}` : 'Nota fuera de ruta'}
+          </div>
+          <button onClick={onClose} className="text-2xl">×</button>
+        </div>
+
+        {!esCliente && (
+          <div className="mb-3">
+            <div className="text-sm font-medium">Cliente</div>
+            <input className="w-full border rounded-md p-2" value={clienteNombre} onChange={e=>setClienteNombre(e.target.value)} placeholder="Nombre del cliente" />
+          </div>
+        )}
+
+        {/* Date row with calendar icon */}
+        <div className="mb-3">
+          <div className="text-sm font-medium mb-1">Fecha</div>
+          <div className="flex items-center justify-between border rounded-2xl px-3 py-2">
+            <div className="text-sm">{formatDateLong(due)}</div>
+            <button
+              ref={anchorRef}
+              type="button"
+              className="icon-btn text-iosBlue hover:bg-gray-50"
+              aria-haspopup="dialog"
+              aria-expanded={openCal}
+              onClick={()=> setOpenCal(v=>!v)}
+              title="Elegir fecha"
+            >
+              <CalendarIcon />
+            </button>
+          </div>
+
+          {openCal && (
+            <div id="calendar-popover" className="absolute right-4 mt-2 z-50 popover-enter-active">
+              <MiniCalendar value={due} onChange={(d)=>{ setDue(d); setOpenCal(false); }} small />
+            </div>
+          )}
+        </div>
+
+        <div>
+          <div className="text-sm font-medium">Texto</div>
+          <textarea className="w-full h-28 border rounded-md p-2" value={texto} onChange={e=>setTexto(e.target.value)} placeholder="Escribe la nota..." />
+        </div>
+
+        <div className="mt-4 flex items-center justify-end gap-2">
+          <button onClick={onClose} className="px-3 py-1 rounded-full border">Cancelar</button>
+          <button
+            onClick={()=> onSave(esCliente
+              ? { tipo:'cliente', id:data.id, clienteId: data.clienteId, texto, dueDate: toKey(due) }
+              : { tipo:'fuera', id:data.id, texto, clienteNombre, dueDate: toKey(due) }
+            )}
+            className="px-3 py-1 rounded-full bg-iosBlue text-white"
+          >
+            Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ===== Views (month/week/day) ===== */
+function VistaMes({ selected, setSelected, setView, countForDate, monthNotes, onComplete, onEdit, onDelete, status }){
+  const firstOfMonth = new Date(selected.getFullYear(), selected.getMonth(), 1);
+  const start = startOfWeekMon(firstOfMonth);
+  const days = Array.from({length:42}, (_,i)=> addDays(start, i));
+
+  const wrapRef = React.useRef(null);
+  React.useEffect(()=>{
+    const el = wrapRef.current; if (!el) return;
+    let x0=null,y0=null;
+    const onStart = (e)=>{ const t=e.touches?.[0]||e; x0=t.clientX; y0=t.clientY; };
+    const onEnd = (e)=>{ if(x0==null) return; const t=e.changedTouches?.[0]||e; const dx=t.clientX-x0; const dy=t.clientY-y0;
+      if (Math.abs(dx)>60 && Math.abs(dy)<50){ const d=new Date(selected); d.setMonth(d.getMonth() + (dx<0?1:-1)); setSelected(atMidnight(d)); }
+      x0=y0=null;
+    };
+    el.addEventListener('touchstart', onStart, {passive:true});
+    el.addEventListener('touchend', onEnd, {passive:true});
+    return ()=>{ el.removeEventListener('touchstart', onStart); el.removeEventListener('touchend', onEnd); };
+  }, [selected,setSelected]);
+
+  return (
+    <div ref={wrapRef} className="space-y-3">
+      <div className="grid grid-cols-7 gap-1">
+        {['L','M','X','J','V','S','D'].map(d=>(
+          <div key={d} className="text-center text-xs text-gray-500 py-1">{d}</div>
+        ))}
+        {days.map(d=>{
+          const key = toKey(d);
+          const esFinde = isWeekend(d);
+          const count = countForDate(d);
+          const isThisMonth = d.getMonth()===selected.getMonth();
+          const isSel = sameDay(d, selected);
+          return (
+            <button
+              key={key}
+              onClick={()=>{
+                if (esFinde) { alert('Día no laborable'); return; }
+                setSelected(d);
+                setView('dia');
+              }}
+              className={`relative cal-cell rounded-2xl border flex items-center justify-center p-1 active:scale-[.98] transition
+                ${isThisMonth?'bg-white':'bg-gray-50'}
+                ${esFinde?'opacity-60':''}
+                ${isSel?'bg-blue-600 text-white border-blue-600':''}
+                ${isToday(d) && !isSel ? 'ring-2 ring-iosBlue' : ''}
+              `}
+            >
+              <div className="text-sm">{d.getDate()}</div>
+              <IOSBadge count={count} />
+            </button>
+          );
+        })}
+      </div>
+
+      <div>
+        <div className="font-semibold mb-2">Notas del mes</div>
+        {monthNotes.length===0 ? (
+          <div className="text-sm text-gray-500">Sin notas</div>
+        ) : (
+          <ul className="space-y-2">
+            {monthNotes.map((n,i)=>{
+              const chip = chipFromDue(n.dueDate);
+              return (
+                <li key={n.id} className="border rounded-2xl p-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <button className="icon-btn text-green-600 hover:bg-green-50" onClick={()=>onComplete(n)} title="Completar"><CheckIcon/></button>
+                      <div className="font-medium">{n.clienteNombre}</div>
+                      <div className="text-xs text-gray-500">{parseISO(n.dueDate).toLocaleDateString('es-ES')}</div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className={`chip ${chip.class}`}>{chip.label}</span>
+                      <button className="icon-btn text-gray-700 hover:bg-gray-50" onClick={()=>onEdit(n)} title="Editar"><PencilIcon/></button>
+                      <button className="icon-btn text-red-600 hover:bg-red-50" onClick={()=>onDelete(n)} title="Borrar"><TrashIcon/></button>
+                    </div>
+                  </div>
+                  <div className="text-sm text-gray-700 mt-1">{n.text}</div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        <div className="mt-2 text-xs text-gray-600">{status.pendientes} pendientes / {status.totales} totales</div>
+      </div>
+    </div>
+  );
+}
+
+function VistaSemana({ selected, setSelected, setView, countForDate, weekNotes, onComplete, onEdit, onDelete, status }){
+  const start = startOfWeekMon(selected);
+  const days = Array.from({length:7},(_,i)=> addDays(start,i));
+
+  const wrapRef = React.useRef(null);
+  React.useEffect(()=>{
+    const el = wrapRef.current; if (!el) return;
+    let x0=null,y0=null;
+    const onStart = (e)=>{ const t=e.touches[0]; x0=t.clientX; y0=t.clientY; };
+    const onEnd = (e)=>{ if(x0==null) return; const t=e.changedTouches[0]; const dx=t.clientX-x0; const dy=t.clientY-y0;
+      if (Math.abs(dx)>60 && Math.abs(dy)<50){ if (dx<0) setSelected(nextWeek(selected)); else setSelected(prevWeek(selected)); }
+      x0=y0=null;
+    };
+    el.addEventListener('touchstart', onStart, {passive:true});
+    el.addEventListener('touchend', onEnd, {passive:true});
+    return ()=>{ el.removeEventListener('touchstart', onStart); el.removeEventListener('touchend', onEnd); };
+  }, [selected,setSelected]);
+
+  return (
+    <div ref={wrapRef} className="space-y-3">
+      <div className="grid grid-cols-7 gap-1">
+        {days.map(d=>{
+          const key = toKey(d);
+          const count = countForDate(d);
+          const esFinde = isWeekend(d);
+          const isSel = sameDay(d, selected);
+          return (
+            <button key={key}
+              onClick={()=>{
+                if (esFinde) { alert('Día no laborable'); return; }
+                setSelected(d);
+                setView('dia');
+              }}
+              className={`relative cal-cell rounded-2xl border p-1 flex items-center justify-center ${isSel?'bg-blue-600 text-white border-blue-600':''} ${esFinde?'opacity-60':''} ${isToday(d) && !isSel ? 'ring-2 ring-iosBlue' : ''}`}
+            >
+              <div className="text-center">
+                <div className="text-xs">{d.toLocaleDateString('es-ES',{weekday:'short'}).replace(/\.$/,'').toLowerCase()}</div>
+                <div className="text-lg font-semibold leading-none">{d.getDate()}</div>
+              </div>
+              <IOSBadge count={count} />
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="mt-2">
+        <div className="font-semibold mb-2">Notas de la semana</div>
+        {weekNotes.length===0 ? (
+          <div className="text-sm text-gray-500">Sin notas</div>
+        ) : (
+          <ul className="space-y-2">
+            {weekNotes.map((n,i)=>{
+              const chip = chipFromDue(n.dueDate);
+              return (
+                <li key={n.id} className="border rounded-2xl p-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <button className="icon-btn text-green-600 hover:bg-green-50" onClick={()=>onComplete(n)} title="Completar"><CheckIcon/></button>
+                      <div className="font-medium">{n.clienteNombre}</div>
+                      <div className="text-xs text-gray-500">{parseISO(n.dueDate).toLocaleDateString('es-ES')}</div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className={`chip ${chip.class}`}>{chip.label}</span>
+                      <button className="icon-btn text-gray-700 hover:bg-gray-50" onClick={()=>onEdit(n)} title="Editar"><PencilIcon/></button>
+                      <button className="icon-btn text-red-600 hover:bg-red-50" onClick={()=>onDelete(n)} title="Borrar"><TrashIcon/></button>
+                    </div>
+                  </div>
+                  <div className="text-sm text-gray-700 mt-1">{n.text}</div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        <div className="mt-2 text-xs text-gray-600">{status.pendientes} pendientes / {status.totales} totales</div>
+      </div>
+    </div>
+  );
+}
+
+function VistaDia({ selected, dayNotes, isWeekend, planClients, openNotaCliente, openNotaFuera, onComplete, onEdit, onDelete, setSelected, status , exportNotasJSON, triggerImportJSON, exportNotasCSV, triggerImportCSV, fileJSONRef, fileCSVRef }){
+  const wrapRef = React.useRef(null);
+  React.useEffect(()=>{
+    const el = wrapRef.current; if (!el) return;
+    let x0=null,y0=null;
+    const onStart = (e)=>{ const t=e.touches[0]; x0=t.clientX; y0=t.clientY; };
+    const onEnd = (e)=>{ if(x0==null) return; const t=e.changedTouches[0]; const dx=t.clientX-x0; const dy=t.clientY-y0;
+      if (Math.abs(dx)>60 && Math.abs(dy)<50){ if (dx<0) setSelected(addDays(selected,1)); else setSelected(addDays(selected,-1)); }
+      x0=y0=null;
+    };
+    el.addEventListener('touchstart', onStart, {passive:true});
+    el.addEventListener('touchend', onEnd, {passive:true});
+    return ()=>{ el.removeEventListener('touchstart', onStart); el.removeEventListener('touchend', onEnd); };
+  }, [selected,setSelected]);
+
+  return (
+    <div ref={wrapRef} className="space-y-4">
+      <div className="text-sm text-gray-600">{isWeekend ? 'Día no laborable' : 'Día laborable'}</div>
+
+      <div>
+        <div className="font-semibold mb-2">Plan del día</div>
+        {planClients.length === 0 ? (
+          <div className="text-sm text-gray-500">Sin clientes planificados</div>
+        ) : (
+          <div className="grid grid-cols-1 gap-2">
+            {planClients.map(c => (
+              <button
+                key={c.id}
+                onClick={()=> openNotaCliente(c.id)}
+                disabled={isWeekend}
+                className={`w-full text-left px-3 py-2 rounded-2xl border active:scale-[.98] ${isWeekend?'opacity-60':''}`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="font-medium">{c.nombre}</div>
+                  <span className="text-gray-400">›</span>
+                </div>
+                <div className="text-xs text-gray-500">Toca para crear/editar nota</div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div>
+        <div className="font-semibold mb-2">Notas</div>
+        <div className="flex items-center justify-between mb-2">
+          <button onClick={openNotaFuera} className="px-3 py-1 rounded-full border border-iosBlue text-iosBlue active:scale-[.98]" disabled={isWeekend}>
+            Añadir nota fuera de ruta
+          </button>
+        </div>
+        {dayNotes.length===0 ? (
+          <div className="text-sm text-gray-500">Sin notas para este día</div>
+        ) : (
+          <ul className="space-y-2">
+            {dayNotes.map(n=>{
+              const chip = chipFromDue(n.dueDate);
+              return (
+                <li key={n.id} className="border rounded-2xl p-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <button className="icon-btn text-green-600 hover:bg-green-50" onClick={()=>onComplete(n)} title="Completar"><CheckIcon/></button>
+                      <div className="font-medium">{n.clienteNombre}</div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className={`chip ${chip.class}`}>{chip.label}</span>
+                      <button className="icon-btn text-gray-700 hover:bg-gray-50" onClick={()=>onEdit(n)} title="Editar"><PencilIcon/></button>
+                      <button className="icon-btn text-red-600 hover:bg-red-50" onClick={()=>onDelete(n)} title="Borrar"><TrashIcon/></button>
+                    </div>
+                  </div>
+                  <div className="text-sm text-gray-700 mt-1">{n.text}</div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        <div className="mt-2 text-xs text-gray-600">{status.pendientes} pendientes / {status.totales} totales</div>
+      </div>
+    </div>
+  );
+}
+
+/* ===== App ===== */
+function App(){
+  // === Exponer utilidades de búsqueda (sin hooks) ===
+(function(){
+  try {
+    const planArr = (typeof loadPlan === 'function') ? loadPlan() : [];
+    const planMap = new Map(planArr.map(p => [String(p.fecha), Array.isArray(p.clienteIds) ? p.clienteIds.map(String) : []]));
+    function toKey(d){ const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), da=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${da}`; }
+    function nextDateForClient(id){
+      const keys = Array.from(planMap.keys()).sort();
+      const todayKey = toKey(new Date());
+      for (const k of keys){ if (k>=todayKey && (planMap.get(k)||[]).includes(String(id))) return k; }
+      for (const k of keys){ if ((planMap.get(k)||[]).includes(String(id))) return k; }
+      return null;
+    }
+    window.findClients = function(q){
+      const term = String(q||'').trim().toLowerCase();
+      if (!term) return [];
+      const list = (Array.isArray(clientes)?clientes:[]).filter(c => {
+        const name = (c?.nombre||'').toLowerCase();
+        const id = String(c?.id||'');
+        return name.includes(term) || id.toLowerCase().includes(term);
+      }).map(c => ({ id: c.id, nombre: c.nombre, next: nextDateForClient(c.id) }));
+      return list.slice(0,100);
+    };
+    window.gotoDate = (key)=>{
+      if (!key) { alert('Este cliente no tiene fecha en el plan.'); return; }
+      const [y,m,d] = String(key).split('-').map(Number);
+      setSelected(new Date(y, (m||1)-1, d||1));
+      setView('dia');
+      const modal = document.getElementById('buscador-modal');
+      if (modal) modal.style.display = 'none';
+    };
+  } catch(e){ console.error('Search helpers error', e); }
+})();
+const [clientes, setClientes] = React.useState(() => normalizeClientes(loadClientes()));
+  const [planMem, setPlanMem] = React.useState(() => expandPlan28(normalizePlan(loadPlan()), 3));
+  const [view, setView] = React.useState('mes');
+  const [selected, setSelected] = React.useState(() => atMidnight(new Date()));
+  const [menuOpen, setMenuOpen] = React.useState(false);
+    const [exportOpen, setExportOpen] = React.useState(false);
+const [importOpen, setImportOpen] = React.useState(false);
+  const [modalNota, setModalNota] = React.useState(null);
+
+  const [notes, setNotes] = React.useState([]); // [{id, clientId?, text, dueDate, completed}]
+
+  // === Export/Import: JSON & CSV para notas ===
+  function fmtTS(d=new Date()){
+    const p = (n)=> String(n).padStart(2,'0');
+    return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'-'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds());
+  }
+  function toExportArray(arr){
+    return arr.map(n => ({
+      id: n.id,
+      clientId: n.clientId ?? null,
+      clienteNombre: n.clienteNombre ?? null,
+      texto: n.text ?? n.texto ?? '',
+      prioridad: n.prioridad ?? null,
+      due: n.dueDate ?? n.due ?? null,
+      completada: !!n.completed,
+      creadaEn: n.creadaEn ?? null,
+      actualizadaEn: n.actualizadaEn ?? null
+    }));
+  }
+  function downloadBlob(filename, mime, dataStr){
+    const blob = new Blob([dataStr], {type: mime});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 0);
+  }
+  // JSON
+  function exportNotasJSON(){
+    const data = JSON.stringify(toExportArray(notes), null, 2);
+    downloadBlob(`notas-${fmtTS()}.json`, "application/json", data);
+  }
+  function importNotasJSONFromFile(file){
+    const reader = new FileReader();
+    reader.onload = () => {
+      try{
+        const arr = JSON.parse(reader.result);
+        if (!Array.isArray(arr)) throw new Error("JSON no es un array");
+        // Validación mínima: deben tener id o due/texto
+        const cleaned = arr.map(n => ({
+          id: n.id || crypto.randomUUID(),
+          clientId: n.clientId ?? null,
+          clienteNombre: n.clienteNombre ?? null,
+          text: n.text ?? n.texto ?? '',
+          prioridad: n.prioridad ?? null,
+          dueDate: n.due ?? n.dueDate ?? null,
+          completed: !!(n.completada ?? n.completed),
+          creadaEn: n.creadaEn ?? null,
+          actualizadaEn: n.actualizadaEn ?? null
+        }));
+        setNotes(cleaned);
+        alert("Notas importadas (JSON).");
+      }catch(e){ alert("Error al importar JSON: " + e.message); }
+    };
+    reader.readAsText(file, "utf-8");
+  }
+  // CSV helpers
+  function csvEscape(v){
+    if (v==null) v='';
+    v = String(v);
+    if (/[",\n]/.test(v)) return '"' + v.replace(/"/g,'""') + '"';
+    return v;
+  }
+  function exportNotasCSV(){
+    const arr = toExportArray(notes);
+    const headers = ["id","clientId","clienteNombre","texto","prioridad","due","completada","creadaEn","actualizadaEn"];
+    const lines = [headers.join(",")];
+    for (const n of arr){
+      const row = [
+        csvEscape(n.id),
+        csvEscape(n.clientId),
+        csvEscape(n.clienteNombre),
+        csvEscape(n.texto),
+        csvEscape(n.prioridad),
+        csvEscape(n.due),
+        csvEscape(n.completada),
+        csvEscape(n.creadaEn),
+        csvEscape(n.actualizadaEn),
+      ].join(",");
+      lines.push(row);
+    }
+    downloadBlob(`notas-${fmtTS()}.csv`, "text/csv", lines.join("\n"));
+  }
+  function parseCSV(text){
+    const rows = [];
+    let i=0, field="", row=[], inQuotes=false;
+    while (i<text.length){
+      const ch = text[i];
+      if (inQuotes){
+        if (ch === '"'){
+          if (text[i+1] === '"'){ field+='"'; i+=2; continue; }
+          inQuotes = false; i++; continue;
+        } else { field += ch; i++; continue; }
+      } else {
+        if (ch === '"'){ inQuotes = true; i++; continue; }
+        if (ch === ','){ row.push(field); field=""; i++; continue; }
+        if (ch === '\n' || ch === '\r'){
+          // consume \r\n together
+          if (ch === '\r' && text[i+1] === '\n') i++;
+          row.push(field); field=""; rows.push(row); row=[]; i++; continue;
+        }
+        field += ch; i++; continue;
+      }
+    }
+    // last field
+    row.push(field); rows.push(row);
+    // remove empty trailing line if any
+    if (rows.length && rows[rows.length-1].every(c=>c==="")) rows.pop();
+    return rows;
+  }
+  function importNotasCSVFromFile(file){
+    const reader = new FileReader();
+    reader.onload = () => {
+      try{
+        const text = reader.result;
+        const rows = parseCSV(text);
+        if (!rows.length) throw new Error("CSV vacío");
+        const headers = rows[0].map(h=>h.trim());
+        const idx = (name)=> headers.indexOf(name);
+        const needed = ["id","clientId","clienteNombre","texto","prioridad","due","completada","creadaEn","actualizadaEn"];
+        for (const h of needed){
+          if (idx(h)===-1) { /* relajamos validación: sólo requerimos texto y due */
+            // continue; // opcional
+          }
+        }
+        const body = rows.slice(1).map(r => {
+          const get = (h)=> r[idx(h)] ?? "";
+          return {
+            id: get("id") || (typeof crypto!=="undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2)),
+            clientId: get("clientId") || null,
+            clienteNombre: get("clienteNombre") || null,
+            text: get("texto") || "",
+            prioridad: get("prioridad") || null,
+            dueDate: get("due") || null,
+            completed: (get("completada")||"").toLowerCase() === "true",
+            creadaEn: get("creadaEn") || null,
+            actualizadaEn: get("actualizadaEn") || null,
+          };
+        });
+        setNotes(body);
+        alert("Notas importadas (CSV).");
+      }catch(e){ alert("Error al importar CSV: " + e.message); }
+    };
+    reader.readAsText(file, "utf-8");
+  }
+  // Inputs invisibles para importar
+  const fileJSONRef = React.useRef(null);
+  const fileCSVRef  = React.useRef(null);
+  const fileAUTORef = React.useRef(null);
+  function triggerImportJSON(){ fileJSONRef.current?.click(); }
+  function triggerImportCSV(){ fileCSVRef.current?.click(); }
+  
+  function triggerImportAUTO(){ fileAUTORef.current?.click(); }
+// === Fin Export/Import ===
+
+  /* === PERSISTENCIA DE NOTAS EN IndexedDB (localForage) === */
+  React.useEffect(() => {
+    if (!window.localforage) return;
+    try {
+      window.localforage.config({ name: 'agenda', storeName: 'notas_store' });
+      window.localforage.getItem('agenda.notas').then((arr) => {
+        if (Array.isArray(arr)) setNotes(arr);
+      }).catch(() => {});
+    } catch(e) {}
+  }, []);
+
+  React.useEffect(() => {
+    if (!window.localforage) return;
+    try {
+      window.localforage.setItem('agenda.notas', notes).catch(() => {});
+    } catch(e) {}
+  }, [notes]);
+  /* === FIN PERSISTENCIA
+  // Cerrar menú al hacer click fuera
+  React.useEffect(() => {
+    function onDocClick(e){
+      if (menuOpen) setMenuOpen(false);
+    }
+    document.addEventListener('click', onDocClick);
+    return () => document.removeEventListener('click', onDocClick);
+  }, [menuOpen]);
+
+  // Cerrar menú con tecla ESC
+  React.useEffect(() => {
+    function onKey(e){
+      if (e.key === 'Escape'){
+        setMenuOpen(false);
+        setExportOpen(false);
+      }
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
+
+ === */
+  const planMap = React.useMemo(() => planByDate(planMem), [planMem]);
+  const cliMap  = React.useMemo(() => clientesById(clientes), [clientes]);
+
+  const goToday = () => { setSelected(atMidnight(new Date())); setView('dia'); };
+  const goPrevMonth = () => { const d=new Date(selected); d.setMonth(d.getMonth()-1); setSelected(atMidnight(d)); };
+  const goNextMonth = () => { const d=new Date(selected); d.setMonth(d.getMonth()+1); setSelected(atMidnight(d)); };
+  const goPrevWeek  = () => setSelected(prevWeek(selected));
+  const goNextWeek  = () => setSelected(nextWeek(selected));
+
+  function onImport({clientesJson, planJson}){
+    const c = normalizeClientes(clientesJson);
+    const p = normalizePlan(planJson);
+    localStorage.setItem(LS_CLIENTES, JSON.stringify(c));
+    localStorage.setItem(LS_PLAN, JSON.stringify(p));
+    setClientes(c);
+    setPlanMem(expandPlan28(p, 3));
+    setImportOpen(false);
+  }
+
+  function openNotaCliente(clienteId, noteToEdit=null){
+    const clienteNombre = cliMap.get(clienteId)?.nombre || clienteId;
+    const payload = noteToEdit || { id:null, tipo:'cliente', clienteId, clienteNombre, texto:'', dueDate: toKey(selected), selectedDate: selected };
+    setModalNota({ ...payload, tipo:'cliente', clienteId, clienteNombre, selectedDate: selected });
+  }
+  function openNotaFuera(noteToEdit=null){
+    const payload = noteToEdit || { id:null, tipo:'fuera', clienteNombre:'', texto:'', dueDate: toKey(selected), selectedDate: selected };
+    setModalNota({ ...payload, tipo:'fuera', selectedDate: selected });
+  }
+
+  function saveNota(payload){
+    const due = payload.dueDate;
+    if (payload.tipo==='cliente'){
+      const conflict = notes.find(n => !n.completed && n.clientId===payload.clienteId && n.dueDate===due && n.id!==payload.id);
+      if (conflict){ alert('Ya existe una nota para este cliente en esa fecha.'); return; }
+    }
+    if (payload.id){
+      setNotes(prev => prev.map(n => n.id===payload.id ? { ...n, clientId: payload.clienteId || n.clientId, text: payload.texto, dueDate: due } : n));
+    } else {
+      setNotes(prev => prev.concat([{ id: Math.random().toString(36).slice(2), clientId: payload.clienteId || null, clienteNombre: payload.clienteNombre || null, text: payload.texto, dueDate: due, completed:false }]));
+    }
+    setModalNota(null);
+  }
+
+  function completeNota(n){
+    setNotes(prev => prev.map(x => x.id===n.id ? { ...x, completed:true } : x));
+  }
+  function deleteNota(n){
+    setNotes(prev => prev.filter(x => x.id !== n.id));
+  }
+  function editNota(n){
+    if (n.clientId) openNotaCliente(n.clientId, { id:n.id, tipo:'cliente', clienteId:n.clientId, clienteNombre: cliMap.get(n.clientId)?.nombre || n.clientId, texto:n.text, dueDate:n.dueDate, selectedDate: selected });
+    else openNotaFuera({ id:n.id, tipo:'fuera', clienteNombre:n.clienteNombre || '', texto:n.text, dueDate:n.dueDate, selectedDate: selected });
+  }
+
+  function countForDate(date){
+    const key = toKey(date);
+    return notes.filter(n => !n.completed && n.dueDate===key).length;
+  }
+  function getDayNotes(date){
+    const key = toKey(date);
+    return notes.filter(n => !n.completed && n.dueDate===key).map(n => ({
+      ...n,
+      clienteNombre: n.clientId ? (cliMap.get(n.clientId)?.nombre || n.clientId) : (n.clienteNombre || 'Sin nombre'),
+    }));
+  }
+  function getWeekNotes(date){
+    const mon = startOfWeekMon(date), sun = endOfWeekMon(date);
+    return notes
+      .filter(n => !n.completed)
+      .filter(n => { const d=parseISO(n.dueDate); return d>=mon && d<=sun; })
+      .sort((a,b)=> parseISO(a.dueDate)-parseISO(b.dueDate))
+      .map(n => ({ ...n, clienteNombre: n.clientId ? (cliMap.get(n.clientId)?.nombre || n.clientId) : (n.clienteNombre || 'Sin nombre') }));
+  }
+  function getMonthNotes(date){
+    const y = date.getFullYear(), m = date.getMonth();
+    const start = new Date(y,m,1);
+    const end = new Date(y,m+1,0);
+    return notes
+      .filter(n => !n.completed)
+      .filter(n => { const d=parseISO(n.dueDate); return d>=start && d<=end; })
+      .sort((a,b)=> parseISO(a.dueDate)-parseISO(b.dueDate))
+      .map(n => ({ ...n, clienteNombre: n.clientId ? (cliMap.get(n.clientId)?.nombre || n.clientId) : (n.clienteNombre || 'Sin nombre') }));
+  }
+  function getStatus(rangeStart, rangeEnd){
+    const totales = notes.filter(n => { const d=parseISO(n.dueDate); return d>=rangeStart && d<=rangeEnd; }).length;
+    const pendientes = notes.filter(n => !n.completed && parseISO(n.dueDate)>=rangeStart && parseISO(n.dueDate)<=rangeEnd).length;
+    return { pendientes, totales };
+  }
+
+  const dayNotes = getDayNotes(selected);
+  const weekNotes = getWeekNotes(selected);
+  const monthNotes = getMonthNotes(selected);
+
+  const dayStatus = getStatus(atMidnight(selected), atMidnight(selected));
+  const weekStatus = getStatus(startOfWeekMon(selected), endOfWeekMon(selected));
+  const monthStatus = (()=>{ const y=selected.getFullYear(), m=selected.getMonth(); return getStatus(new Date(y,m,1), new Date(y,m+1,0)); })();
+
+  const headerTitle = (view==='mes')
+    ? formatMonthTitle(selected)
+    : (view==='semana' ? formatWeekRange(selected)
+      : selected.toLocaleDateString('es-ES', { weekday:'long', day:'2-digit', month:'long', year:'numeric' }));
+
+  const planClients = React.useMemo(()=>{
+    const ids = planMap.get(toKey(selected)) || [];
+    return ids.map(id => ({ id, nombre: (clientes.find(c=>c.id===id)||{}).nombre || id }));
+  }, [planMap, selected, clientes]);
+
+  return (
+    <div className="max-w-3xl mx-auto p-3 pb-24 no-select">
+      <div className="flex items-center justify-between mb-3">
+        <button aria-label="Buscar" className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center active:scale-[.98]">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2"/><line x1="20" y1="20" x2="17" y2="17" stroke="currentColor" strokeWidth="2"/></svg>
+        </button>
+
+        
+        <div className="inline-flex rounded-full border border-gray-200 overflow-hidden">
+          <button onClick={()=>setView('mes')}    className={`px-3 py-1 text-sm ${view==='mes'?'bg-iosBlue text-white':'text-gray-700 hover:bg-gray-50'}`}>Mes</button>
+          <button onClick={()=>setView('semana')} className={`px-3 py-1 text-sm border-l border-gray-200 ${view==='semana'?'bg-iosBlue text-white':'text-gray-700 hover:bg-gray-50'}`}>Semana</button>
+          <button onClick={()=>setView('dia')}    className={`px-3 py-1 text-sm border-l border-gray-200 ${view==='dia'?'bg-iosBlue text-white':'text-gray-700 hover:bg-gray-50'}`}>Día</button>
+        </div>
+        
+        
+        <div className="relative">
+          <button aria-label="Más opciones" onClick={(e)=>{e.stopPropagation(); setMenuOpen(v=>!v); setExportOpen(false);}} className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center active:scale-[.98]">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+          </button>
+
+          {/* Overlay pantalla completa para cerrar al tocar fuera */}
+          {menuOpen && <div className="fixed inset-0 z-40" onClick={()=>{ setMenuOpen(false); setExportOpen(false); }}></div>}
+
+          {/* Popover del menú */}
+          {menuOpen && (
+            <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-2xl shadow-lg p-2 z-50" onClick={(e)=>e.stopPropagation()}>
+              {/* Exportar con submenú */}
+              <div className="relative">
+                <button onClick={()=>setExportOpen(v=>!v)} className="w-full text-left px-3 py-2 rounded-xl hover:bg-gray-50 flex items-center justify-between">
+                  <span>Exportar…</span>
+                  <span className="text-gray-400">›</span>
+                </button>
+                {exportOpen && (
+                  <div className="absolute left-full top-0 ml-2 w-48 bg-white border border-gray-200 rounded-2xl shadow-lg p-2">
+                    <button onClick={()=>{ setExportOpen(false); setMenuOpen(false); exportNotasJSON(); }} className="w-full text-left px-3 py-2 rounded-xl hover:bg-gray-50">JSON</button>
+                    <button onClick={()=>{ setExportOpen(false); setMenuOpen(false); exportNotasCSV(); }}  className="w-full text-left px-3 py-2 rounded-xl hover:bg-gray-50">CSV</button>
+                  </div>
+                )}
+              </div>
+
+              {/* Importar auto-detección (JSON o CSV) */}
+              <button onClick={()=>{ triggerImportAUTO(); }} className="w-full text-left px-3 py-2 rounded-xl hover:bg-gray-50">Importar…</button>
+
+              <div className="h-px bg-gray-200 my-1"></div>
+
+              {/* Cargar ruta (abre modal de datos) */}
+              <button onClick={()=>{ setMenuOpen(false); setExportOpen(false); setImportOpen(true); }} className="w-full text-left px-3 py-2 rounded-xl hover:bg-gray-50">Cargar ruta…</button>
+
+              <div className="h-px bg-gray-200 my-1"></div>
+
+              <button disabled className="w-full text-left px-3 py-2 rounded-xl text-gray-400">Exportar PDF (pendiente)</button>
+
+              {/* Inputs ocultos */}
+              <input ref={fileJSONRef} type="file" accept="application/json,.json" className="hidden" onChange={(e)=>{ const f=e.target.files?.[0]; if(f){ importNotasJSONFromFile(f); } e.target.value=""; setMenuOpen(false); }} />
+              <input ref={fileCSVRef}  type="file" accept=".csv,text/csv" className="hidden" onChange={(e)=>{ const f=e.target.files?.[0]; if(f){ importNotasCSVFromFile(f); }  e.target.value=""; setMenuOpen(false); }} />
+              <input ref={fileAUTORef} type="file" accept="application/json,.json,.csv,text/csv" className="hidden" onChange={(e)=>{ const f=e.target.files?.[0]; if(f){ if (f.name.toLowerCase().endsWith('.csv')) { importNotasCSVFromFile(f); } else { importNotasJSONFromFile(f); } } e.target.value=''; setMenuOpen(false); }} />
+            </div>
+          )}
+        </div>
+
+
+      </div>
+
+      <div className="flex items-center justify-between mb-2">
+        <button onClick={view==='mes'?()=>{ const d=new Date(selected); d.setMonth(d.getMonth()-1); setSelected(atMidnight(d)); }:(view==='semana'?()=>setSelected(prevWeek(selected)):()=>setSelected(addDays(selected,-1)))} className="text-iosBlue text-xl">‹</button>
+        <div className="font-semibold capitalize">{headerTitle}</div>
+        <button onClick={view==='mes'?()=>{ const d=new Date(selected); d.setMonth(d.getMonth()+1); setSelected(atMidnight(d)); }:(view==='semana'?()=>setSelected(nextWeek(selected)):()=>setSelected(addDays(selected,1)))} className="text-iosBlue text-xl">›</button>
+      </div>
+
+      {view==='mes' && (
+        <VistaMes
+          selected={selected}
+          setSelected={setSelected}
+          setView={setView}
+          countForDate={(date)=>notes.filter(n=>!n.completed && n.dueDate===toKey(date)).length}
+          monthNotes={monthNotes}
+          onComplete={completeNota}
+          onEdit={editNota}
+          onDelete={deleteNota}
+          status={monthStatus}
+        />
+      )}
+      {view==='semana' && (
+        <VistaSemana
+          selected={selected}
+          setSelected={setSelected}
+          setView={setView}
+          countForDate={(date)=>notes.filter(n=>!n.completed && n.dueDate===toKey(date)).length}
+          weekNotes={weekNotes}
+          onComplete={completeNota}
+          onEdit={editNota}
+          onDelete={deleteNota}
+          status={weekStatus}
+        />
+      )}
+      {view==='dia' && (
+        <VistaDia
+          selected={selected}
+          dayNotes={dayNotes}
+          isWeekend={isWeekend(selected)}
+          planClients={planClients}
+          openNotaCliente={(id)=>openNotaCliente(id)}
+          openNotaFuera={()=>openNotaFuera()}
+          onComplete={completeNota}
+          onEdit={editNota}
+          onDelete={deleteNota}
+          setSelected={setSelected}
+          status={dayStatus}
+          exportNotasJSON={exportNotasJSON}
+          triggerImportJSON={triggerImportJSON}
+          exportNotasCSV={exportNotasCSV}
+          triggerImportCSV={triggerImportCSV}
+          fileJSONRef={fileJSONRef}
+          fileCSVRef={fileCSVRef}
+        />
+      )}
+
+      {importOpen && <ModalImportar onClose={()=>setImportOpen(false)} onImport={onImport} />}
+      {modalNota && (
+        <ModalNota
+          data={modalNota}
+          onClose={()=>setModalNota(null)}
+          onSave={saveNota}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ===== Mount ===== */
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+
+<!-- ===== Modal de búsqueda (vanilla, sin React) ===== -->
+<div id="buscador-modal" style="display:none;position:fixed;inset:0;z-index:9999;">
+  <div id="buscador-backdrop" style="position:absolute;inset:0;background:rgba(0,0,0,.3);"></div>
+  <div style="position:absolute;left:50%;transform:translateX(-50%);top:56px;width:min(640px,92vw);background:#fff;border:1px solid #e5e7eb;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.15);padding:16px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <div style="font-weight:600">Buscar</div>
+      <button id="buscador-close" style="font-size:20px;line-height:1;border:none;background:transparent;cursor:pointer">×</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;border:1px solid #e5e7eb;border-radius:9999px;padding:8px 12px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><line x1="20" y1="20" x2="17" y2="17" stroke="currentColor" stroke-width="2"/></svg>
+      <input id="buscador-input" placeholder="Buscar por nombre o ID" style="flex:1;outline:none;border:none;font-size:14px;" />
+    </div>
+    <div id="buscador-results" style="margin-top:12px;max-height:50vh;overflow:auto;border:1px solid #e5e7eb;border-radius:12px;padding:8px;"></div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  
+  // Formatea 'YYYY-MM-DD' -> 'DD de Mes' (es-ES, capitalizado)
+  function formatKey(key){
+    if (!key) return '';
+    var parts = String(key).split('-');
+    var y = +parts[0], m = +parts[1], d = +parts[2];
+    var meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    var nombre = meses[(m||1)-1] || '';
+    var cap = nombre ? (nombre.charAt(0).toUpperCase() + nombre.slice(1)) : '';
+    return (d||1) + ' de ' + cap;
+  }
+function openModal(){
+    const modal = document.getElementById('buscador-modal');
+    if (!modal) return;
+    modal.style.display = 'block';
+    setTimeout(()=>{document.getElementById('buscador-input')?.focus();},0);
+    render('');
+  }
+  function closeModal(){
+    const modal = document.getElementById('buscador-modal');
+    if (modal) modal.style.display = 'none';
+  }
+  function render(q){
+    const box = document.getElementById('buscador-results');
+    if (!box) return;
+    const term = String(q||'').trim();
+    if (!term){ box.innerHTML = ''; return; } // <- sin "Escribe para buscar…"
+    const list = (window.findClients ? window.findClients(term) : []);
+    if (!list.length){ box.innerHTML = '<div style="color:#6b7280;font-size:12px;padding:8px;">Sin resultados</div>'; return; }
+    box.innerHTML = list.map(item => {
+      const meta = item.next ? '• Próxima: ' + formatKey(item.next) : '• Sin fecha en plan';
+      return `<div class="r-item" data-key="${item.next||''}" style="display:flex;align-items:center;justify-content:space-between;padding:10px 8px;border-bottom:1px solid #f3f4f6;cursor:pointer;">
+        <div>
+          <div style="font-weight:600">${item.nombre}</div>
+          <div style="font-size:12px;color:#6b7280">ID: ${item.id} ${meta}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  // Delegación: clic en fila completa
+  document.addEventListener('click', function(e){
+    const row = e.target.closest('#buscador-results .r-item');
+    if (row){
+      const key = row.getAttribute('data-key');
+      if (key){ window.gotoDate && window.gotoDate(key); }
+      else { alert('Este cliente no tiene fecha en el plan.'); }
+    }
+  });
+  // Click en la lupa (primera que encontremos)
+  document.addEventListener('click', function(e){
+    const btn = e.target.closest('button[aria-label="Buscar"]');
+    if (btn){ openModal(); }
+  });
+  // Cerrar: backdrop, botón X, tecla Esc
+  document.getElementById('buscador-backdrop').addEventListener('click', closeModal);
+  document.getElementById('buscador-close').addEventListener('click', closeModal);
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeModal(); });
+  // Input: búsquedas en tiempo real
+  document.addEventListener('input', function(e){
+    if (e.target && e.target.id === 'buscador-input'){ render(e.target.value); }
+  });
+  // Hover visual básico (CSS inline no soporta :hover, así que usamos delegación)
+  document.addEventListener('mouseover', function(e){
+    const row = e.target.closest('#buscador-results .r-item'); if (row) row.style.background = '#f9fafb';
+  });
+  document.addEventListener('mouseout', function(e){
+    const row = e.target.closest('#buscador-results .r-item'); if (row) row.style.background = '';
+  });
+})();
+</script>
+
+</body>
+</html>
